@@ -1,21 +1,17 @@
 # -- Base name for generated objects. Defaults to the release name.
 fullnameOverride: ""
 
-# -- Hostnames this gateway serves. Used as the default for generated listeners, route hostnames
-# and certificate dnsNames. Leave empty if you supply listeners, route hostnames and dnsNames yourself.
+# -- Hostnames this gateway serves. Used as the default for generated listeners and route
+# hostnames. Leave empty if you supply listeners and route hostnames yourself.
 hostnames: []
 
 # -- Labels / annotations added to every object. A per-object value wins on conflict.
 commonLabels: {}
 commonAnnotations: {}
 
-# -- Add app.kubernetes.io/* and helm.sh/chart labels to every object.
-standardLabels: true
-
 # -- apiVersion per kind. Override for older or experimental Gateway API installs
 # (for example BackendTLSPolicy gateway.networking.k8s.io/v1alpha3, TLSRoute .../v1alpha2).
 apiVersions:
-  GatewayClass: gateway.networking.k8s.io/v1
   Gateway: gateway.networking.k8s.io/v1
   HTTPRoute: gateway.networking.k8s.io/v1
   GRPCRoute: gateway.networking.k8s.io/v1
@@ -23,33 +19,21 @@ apiVersions:
   TCPRoute: gateway.networking.k8s.io/v1alpha2
   UDPRoute: gateway.networking.k8s.io/v1alpha2
   BackendTLSPolicy: gateway.networking.k8s.io/v1
-  ReferenceGrant: gateway.networking.k8s.io/v1
-  Certificate: cert-manager.io/v1
 
 # Every object below follows the same convention. A few reserved keys are chart controls
-# (enabled, name, namespace, labels, annotations, plus the ones listed per object). Every other
-# key is copied verbatim into the object's spec, so any field the CRD supports works, including
-# fields added in future Gateway API releases.
+# (named per object). Every other key is copied verbatim into the object's spec, so any field the
+# CRD supports works, including fields added in future Gateway API releases. Everything is created
+# in the release namespace.
 
-# -- Optional GatewayClass (cluster-scoped). Normally installed by the Gateway implementation.
-# Reserved keys: enabled, name, labels, annotations. Spec keys: controllerName, parametersRef,
-# description.
-gatewayClass:
-  enabled: false
-  name: ""
-  labels: {}
-  annotations: {}
-  # controllerName: io.cilium/gateway-controller
-
-# -- The Gateway. Reserved keys: enabled, name, namespace, labels, annotations, defaultListener.
-# Spec keys: gatewayClassName (required), listeners, addresses, allowedListeners, tls,
+# -- The Gateway. Reserved keys: enabled, name, labels, annotations, defaultListener.
+# Spec keys: gatewayClassName, listeners, addresses, allowedListeners, tls,
 # infrastructure (labels, annotations, parametersRef), and anything else the CRD defines.
 gateway:
   enabled: true
   name: ""
-  namespace: ""
   labels: {}
   annotations: {}
+  # The GatewayClass is installed by the Gateway implementation, not by this chart.
   gatewayClassName: cilium
   # Certificates: annotate the Gateway and cert-manager's Gateway API support issues one per TLS
   # listener, named after the listener's secret.
@@ -64,111 +48,55 @@ gateway:
   defaultListener:
     protocol: HTTPS
     port: 443
-    # TLS secret for HTTPS and TLS listeners. Defaults to <hostname>-tls per listener, or to the
-    # primary certificate's secret when `certificate` is enabled.
+    # TLS secret for HTTPS and TLS listeners. Defaults to <hostname>-tls per listener. Set it to
+    # use a secret you manage yourself.
     secretName: ""
     # Extra listener.tls fields (mode, options, certificateRefs, ...).
     tls: {}
     # Added to each generated listener as allowedRoutes.
     allowedRoutes: {}
 
-# -- The primary Route. Reserved keys: enabled, kind, apiVersion, name, namespace, labels,
-# annotations. kind is one of HTTPRoute, GRPCRoute, TLSRoute, TCPRoute, UDPRoute.
-# Spec keys: hostnames, parentRefs, rules, and anything else the CRD defines.
-# Defaults: hostnames come from the top-level hostnames, parentRefs point at this release's
-# Gateway, and with no rules a single rule sends everything (path prefix / for HTTPRoute) to the
-# primary Service. A backendRef that omits name (and port) is filled with the primary Service.
-route:
-  enabled: true
-  kind: HTTPRoute
-  name: ""
-  namespace: ""
-  labels: {}
-  annotations: {}
-  # hostnames: []
-  # parentRefs: []
-  # rules: []
+# -- Routes. Each item's reserved keys: kind, apiVersion, name, labels, annotations. kind is one of
+# HTTPRoute (the default), GRPCRoute, TLSRoute, TCPRoute, UDPRoute. Spec keys: hostnames,
+# parentRefs, rules, and anything else the CRD defines.
+# With no routes at all, a single HTTPRoute sends everything to the first service. Per route,
+# hostnames come from the top-level hostnames, parentRefs point at this release's Gateway, and
+# with no rules everything (path prefix / for HTTPRoute) goes to the first service. A backendRef
+# that omits name (and port) is filled with the first service.
+routes: []
+#  - rules:
+#      - matches:
+#          - path:
+#              type: PathPrefix
+#              value: /api
+#        backendRefs:
+#          - weight: 90
 
-# -- Additional Routes, each with the same keys as `route`.
-extraRoutes: []
-
-# -- The primary Service, a backend that is normally outside the cluster.
-# Reserved keys: enabled, name, namespace, labels, annotations, ports, endpoints, endpointSlice,
-# backendTLS. Every other key is a Service spec field (type, selector, ipFamilyPolicy,
-# ipFamilies, externalName, clusterIP, loadBalancerClass, sessionAffinity, ...).
-service:
-  enabled: true
-  # Defaults to the release name for this primary Service.
-  name: ""
-  namespace: ""
-  labels: {}
-  annotations: {}
-  # Service ports: native fields (name, port, targetPort, protocol, appProtocol, nodePort),
-  # plus endpointPort: the number written into the EndpointSlice port. It defaults to targetPort
-  # (or port when there is no targetPort) and must be set when targetPort is a name.
-  ports: []
-  #  - name: https
-  #    port: 443
-  #    targetPort: 8443
-  # Out-of-cluster backends. Each item is a native EndpointSlice endpoint (hostname, nodeName,
-  # zone, conditions, targetRef, deprecatedTopology, hints) with `addresses` as a mixed list of
-  # IPv4 and IPv6 addresses. The chart splits them into one IPv4 and one IPv6 EndpointSlice and
-  # omits a slice for a family with no addresses. conditions defaults to {ready: true}.
-  # Leave empty for selector-based or ExternalName Services.
-  endpoints: []
-  #  - hostname: backend1
-  #    addresses: [192.0.2.20, 2001:db8::20]
-  # EndpointSlice metadata. Names default to <service>-<first port> and <service>-<first port>-v6.
-  endpointSlice:
-    nameIPv4: ""
-    nameIPv6: ""
-    labels: {}
-    annotations: {}
-  # BackendTLSPolicy for this Service. Reserved keys: enabled, name, namespace, labels,
-  # annotations. Spec keys: validation (hostname, caCertificateRefs, wellKnownCACertificates,
-  # subjectAltNames), options, targetRefs. targetRefs defaults to this Service.
-  backendTLS:
-    enabled: false
-    name: ""
-    labels: {}
-    annotations: {}
-    # validation:
-    #   hostname: backend.example.com
-    #   caCertificateRefs:
-    #     - group: ""
-    #       kind: ConfigMap
-    #       name: my-ca
-
-# -- Additional Services, each with the same keys as `service`. `name` is required.
-extraServices: []
-
-# -- Optional explicit cert-manager Certificate, for options the Gateway annotation cannot express
-# (duration, privateKey, secretTemplate, ...). Most setups should annotate the Gateway instead.
-# Reserved keys: enabled, name, namespace, labels,
-# annotations. Every other key is a Certificate spec field (issuerRef, secretName, dnsNames,
-# duration, renewBefore, privateKey, usages, secretTemplate, keystores, additionalOutputFormats,
-# ...). issuerRef is required. dnsNames defaults to the top-level hostnames, secretName to
-# <first dnsName>-tls and the object name to secretName.
-certificate:
-  enabled: false
-  name: ""
-  namespace: ""
-  labels: {}
-  annotations: {}
-  # issuerRef:
-  #   kind: ClusterIssuer
-  #   name: my-issuer
-
-# -- Additional Certificates, each with the same keys as `certificate`.
-extraCertificates: []
-
-# -- ConfigMaps, typically CA bundles referenced by a BackendTLSPolicy.
-# Keys: name, namespace, labels, annotations, data, binaryData, immutable.
-caConfigMaps: []
-#  - name: my-ca
-#    data:
-#      ca.crt: |
-#        -----BEGIN CERTIFICATE-----
-
-# -- ReferenceGrants. Keys: name, namespace, labels, annotations, from, to.
-referenceGrants: []
+# -- Services, backends that are normally outside the cluster. The first defaults to the release
+# name; the others need a name.
+# Reserved keys: name, labels, annotations, ports, endpoints, endpointSlice, backendTLS. Every
+# other key is a Service spec field (type, selector, ipFamilyPolicy, ipFamilies, externalName,
+# clusterIP, loadBalancerClass, sessionAffinity, ...).
+services: []
+#  - ports:
+#      - port: 443
+#        targetPort: 8443
+#    endpoints:
+#      - hostname: backend1
+#        addresses:
+#          - 192.0.2.20
+#          - 2001:db8::20
+# ports: native Service port fields (name, port, targetPort, protocol, appProtocol, nodePort),
+# plus endpointPort: the number written into the EndpointSlice port. It defaults to targetPort
+# (or port when there is no targetPort) and must be set when targetPort is a name.
+# endpoints: each item is a native EndpointSlice endpoint (hostname, nodeName, zone, conditions,
+# targetRef, hints) with `addresses` as a mixed list of IPv4 and IPv6 addresses. The chart splits
+# them into one IPv4 and one IPv6 EndpointSlice and omits a slice for a family with no addresses.
+# conditions defaults to ready: true. Leave endpoints out for selector-based or ExternalName
+# Services.
+# endpointSlice: nameIPv4, nameIPv6, labels, annotations. Names default to
+# <service>-<first port> and <service>-<first port>-v6.
+# backendTLS: a BackendTLSPolicy for the Service. Reserved keys: name, labels, annotations. Spec
+# keys: validation (hostname, caCertificateRefs, wellKnownCACertificates, subjectAltNames),
+# options, targetRefs. targetRefs defaults to the Service. The CA ConfigMap it references is not
+# managed by this chart.

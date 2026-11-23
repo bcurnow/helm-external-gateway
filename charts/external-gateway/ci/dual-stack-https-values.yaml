@@ -8,8 +8,8 @@ gateway:
       example.com/lb-ips: 192.0.2.10,2001:db8::10
   annotations:
     cert-manager.io/cluster-issuer: example-issuer
-service:
-  ipFamilyPolicy: PreferDualStack
+services:
+- ipFamilyPolicy: PreferDualStack
   ports:
   - name: port-80
     port: 80
@@ -21,7 +21,6 @@ service:
     - 192.0.2.20
     - 2001:db8::20
   backendTLS:
-    enabled: true
     validation:
       hostname: backend.example.com
       caCertificateRefs:

@@ -7,10 +7,10 @@ gateway:
     port: 443
     tls:
       mode: Passthrough
-route:
-  kind: TLSRoute
-service:
-  ports:
+routes:
+- kind: TLSRoute
+services:
+- ports:
   - name: tls
     port: 443
     targetPort: 8443

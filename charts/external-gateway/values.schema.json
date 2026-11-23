@@ -23,39 +23,10 @@
         "type": "string"
       }
     },
-    "standardLabels": {
-      "type": "boolean"
-    },
     "apiVersions": {
       "type": "object",
       "additionalProperties": {
         "type": "string"
-      }
-    },
-    "gatewayClass": {
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
-        "name": {
-          "type": "string"
-        },
-        "namespace": {
-          "type": "string"
-        },
-        "labels": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "annotations": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        }
       }
     },
     "gateway": {
@@ -65,9 +36,6 @@
           "type": "boolean"
         },
         "name": {
-          "type": "string"
-        },
-        "namespace": {
           "type": "string"
         },
         "labels": {
@@ -118,68 +86,24 @@
         }
       }
     },
-    "route": {
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
-        "name": {
-          "type": "string"
-        },
-        "namespace": {
-          "type": "string"
-        },
-        "labels": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "annotations": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "kind": {
-          "enum": [
-            "HTTPRoute",
-            "GRPCRoute",
-            "TLSRoute",
-            "TCPRoute",
-            "UDPRoute"
-          ]
-        },
-        "apiVersion": {
-          "type": "string"
-        },
-        "hostnames": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "parentRefs": {
-          "type": "array"
-        },
-        "rules": {
-          "type": "array"
-        }
-      }
-    },
-    "extraRoutes": {
+    "routes": {
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
-          "enabled": {
-            "type": "boolean"
+          "kind": {
+            "enum": [
+              "HTTPRoute",
+              "GRPCRoute",
+              "TLSRoute",
+              "TCPRoute",
+              "UDPRoute"
+            ]
           },
-          "name": {
+          "apiVersion": {
             "type": "string"
           },
-          "namespace": {
+          "name": {
             "type": "string"
           },
           "labels": {
@@ -193,18 +117,6 @@
             "additionalProperties": {
               "type": "string"
             }
-          },
-          "kind": {
-            "enum": [
-              "HTTPRoute",
-              "GRPCRoute",
-              "TLSRoute",
-              "TCPRoute",
-              "UDPRoute"
-            ]
-          },
-          "apiVersion": {
-            "type": "string"
           },
           "hostnames": {
             "type": "array",
@@ -221,148 +133,12 @@
         }
       }
     },
-    "service": {
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
-        "name": {
-          "type": "string"
-        },
-        "namespace": {
-          "type": "string"
-        },
-        "labels": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "annotations": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "ports": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string"
-              },
-              "port": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 65535
-              },
-              "targetPort": {
-                "type": [
-                  "integer",
-                  "string"
-                ]
-              },
-              "protocol": {
-                "enum": [
-                  "TCP",
-                  "UDP",
-                  "SCTP"
-                ]
-              },
-              "appProtocol": {
-                "type": "string"
-              },
-              "nodePort": {
-                "type": "integer"
-              },
-              "endpointPort": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 65535
-              }
-            },
-            "required": [
-              "port"
-            ]
-          }
-        },
-        "endpoints": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "addresses": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "minItems": 1
-              }
-            },
-            "required": [
-              "addresses"
-            ]
-          }
-        },
-        "endpointSlice": {
-          "type": "object",
-          "properties": {
-            "nameIPv4": {
-              "type": "string"
-            },
-            "nameIPv6": {
-              "type": "string"
-            },
-            "labels": {
-              "type": "object"
-            },
-            "annotations": {
-              "type": "object"
-            }
-          }
-        },
-        "backendTLS": {
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
-            "name": {
-              "type": "string"
-            },
-            "namespace": {
-              "type": "string"
-            },
-            "labels": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "string"
-              }
-            },
-            "annotations": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      }
-    },
-    "extraServices": {
+    "services": {
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
           "name": {
-            "type": "string"
-          },
-          "namespace": {
             "type": "string"
           },
           "labels": {
@@ -448,23 +224,23 @@
                 "type": "string"
               },
               "labels": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
               },
               "annotations": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
               }
             }
           },
           "backendTLS": {
             "type": "object",
             "properties": {
-              "enabled": {
-                "type": "boolean"
-              },
               "name": {
-                "type": "string"
-              },
-              "namespace": {
                 "type": "string"
               },
               "labels": {
@@ -482,121 +258,6 @@
             }
           }
         }
-      }
-    },
-    "certificate": {
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
-        "name": {
-          "type": "string"
-        },
-        "namespace": {
-          "type": "string"
-        },
-        "labels": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "annotations": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "issuerRef": {
-          "type": "object"
-        },
-        "dnsNames": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "secretName": {
-          "type": "string"
-        }
-      }
-    },
-    "extraCertificates": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "name": {
-            "type": "string"
-          },
-          "namespace": {
-            "type": "string"
-          },
-          "labels": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "annotations": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "issuerRef": {
-            "type": "object"
-          },
-          "dnsNames": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "secretName": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "caConfigMaps": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "name"
-        ]
-      }
-    },
-    "referenceGrants": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "from": {
-            "type": "array"
-          },
-          "to": {
-            "type": "array"
-          }
-        },
-        "required": [
-          "name",
-          "from",
-          "to"
-        ]
       }
     }
   }

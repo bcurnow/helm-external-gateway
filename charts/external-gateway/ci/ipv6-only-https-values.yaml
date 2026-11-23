@@ -5,8 +5,18 @@ gateway:
   annotations:
     cert-manager.io/issuer: example-issuer
     cert-manager.io/issuer-kind: Issuer
-service:
-  ipFamilies:
+routes:
+- rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    timeouts:
+      request: 0s
+    backendRefs:
+    - {}
+services:
+- ipFamilies:
   - IPv6
   ipFamilyPolicy: SingleStack
   ports:
@@ -17,13 +27,3 @@ service:
   endpoints:
   - addresses:
     - 2001:db8::40
-route:
-  rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /
-    timeouts:
-      request: 0s
-    backendRefs:
-    - {}

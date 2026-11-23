@@ -1,6 +1,6 @@
 {{- if .Values.gateway.enabled }}
 {{- $gw := .Values.gateway }}
-{{- $spec := deepCopy (omit $gw "enabled" "name" "namespace" "labels" "annotations" "defaultListener") }}
+{{- $spec := deepCopy (omit $gw "enabled" "name" "labels" "annotations" "defaultListener") }}
 {{- if not $spec.gatewayClassName }}
 {{- fail "gateway.gatewayClassName is required when gateway.enabled" }}
 {{- end }}
@@ -9,7 +9,6 @@
 {{- fail "set hostnames or gateway.listeners" }}
 {{- end }}
 {{- $dl := $gw.defaultListener }}
-{{- $secret := default (include "eg.certSecretName" .) $dl.secretName }}
 {{- $listeners := list }}
 {{- range $h := .Values.hostnames }}
 {{- $l := dict "name" (printf "%s-%s" (include "eg.slug" $h) (lower $dl.protocol)) "hostname" $h "port" $dl.port "protocol" $dl.protocol }}
@@ -17,7 +16,7 @@
 {{- if or (eq $dl.protocol "HTTPS") (eq $dl.protocol "TLS") }}
 {{- $tls := deepCopy (default (dict) $dl.tls) }}
 {{- if and (not (hasKey $tls "certificateRefs")) (ne (default "Terminate" $tls.mode) "Passthrough") }}
-{{- $_ := set $tls "certificateRefs" (list (dict "name" (default (printf "%s-tls" $h) $secret))) }}
+{{- $_ := set $tls "certificateRefs" (list (dict "name" (default (printf "%s-tls" $h) $dl.secretName))) }}
 {{- end }}
 {{- if $tls }}{{- $_ := set $l "tls" $tls }}{{- end }}
 {{- end }}
@@ -28,7 +27,7 @@
 apiVersion: {{ .Values.apiVersions.Gateway }}
 kind: Gateway
 metadata:
-  {{- include "eg.meta" (dict "root" $ "name" (include "eg.gatewayName" .) "namespace" $gw.namespace "labels" $gw.labels "annotations" $gw.annotations) | nindent 2 }}
+  {{- include "eg.meta" (dict "root" $ "name" (include "eg.gatewayName" .) "labels" $gw.labels "annotations" $gw.annotations) | nindent 2 }}
 spec:
   {{- toYaml $spec | nindent 2 }}
 {{- end }}

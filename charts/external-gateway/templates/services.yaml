@@ -1,10 +1,6 @@
-{{- $svcs := list }}
-{{- if .Values.service.enabled }}{{- $svcs = append $svcs (set (deepCopy .Values.service) "__primary" true) }}{{- end }}
-{{- range .Values.extraServices }}{{- if include "eg.isEnabled" . }}{{- $svcs = append $svcs . }}{{- end }}{{- end }}
-{{- range $svc := $svcs }}
-{{- $name := "" }}
-{{- if $svc.name }}{{- $name = $svc.name }}{{- else if hasKey $svc "__primary" }}{{- $name = include "eg.fullname" $ }}{{- else }}{{- fail "extraServices[].name is required" }}{{- end }}
-{{- $spec := deepCopy (omit $svc "__primary" "enabled" "name" "namespace" "labels" "annotations" "ports" "endpoints" "endpointSlice" "backendTLS") }}
+{{- range $i, $svc := .Values.services }}
+{{- $name := include "eg.serviceName" (dict "root" $ "svc" $svc "index" $i) }}
+{{- $spec := deepCopy (omit $svc "name" "labels" "annotations" "ports" "endpoints" "endpointSlice" "backendTLS") }}
 {{- if $svc.ports }}
 {{- $ports := list }}
 {{- range $p := $svc.ports }}{{- $ports = append $ports (omit $p "endpointPort") }}{{- end }}
@@ -14,7 +10,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  {{- include "eg.meta" (dict "root" $ "name" $name "namespace" $svc.namespace "labels" $svc.labels "annotations" $svc.annotations) | nindent 2 }}
+  {{- include "eg.meta" (dict "root" $ "name" $name "labels" $svc.labels "annotations" $svc.annotations) | nindent 2 }}
 spec:
   {{- toYaml $spec | nindent 2 }}
 {{- if $svc.endpoints }}
@@ -54,7 +50,7 @@ spec:
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
-  {{- include "eg.meta" (dict "root" $ "name" $fam.name "namespace" $svc.namespace "labels" (merge (dict "kubernetes.io/service-name" $name) (default (dict) $es.labels)) "annotations" $es.annotations) | nindent 2 }}
+  {{- include "eg.meta" (dict "root" $ "name" $fam.name "labels" (merge (dict "kubernetes.io/service-name" $name) (default (dict) $es.labels)) "annotations" $es.annotations) | nindent 2 }}
 addressType: {{ $fam.type }}
 ports:
   {{- toYaml $slicePorts | nindent 2 }}
@@ -64,16 +60,14 @@ endpoints:
 {{- end }}
 {{- end }}
 {{- with $svc.backendTLS }}
-{{- if .enabled }}
-{{- $bspec := deepCopy (omit . "enabled" "name" "namespace" "labels" "annotations") }}
+{{- $bspec := deepCopy (omit . "name" "labels" "annotations") }}
 {{- if not $bspec.targetRefs }}{{- $_ := set $bspec "targetRefs" (list (dict "group" "" "kind" "Service" "name" $name)) }}{{- end }}
 ---
 apiVersion: {{ $.Values.apiVersions.BackendTLSPolicy }}
 kind: BackendTLSPolicy
 metadata:
-  {{- include "eg.meta" (dict "root" $ "name" (default (printf "%s-backend-tls" $name) .name) "namespace" (default $svc.namespace .namespace) "labels" .labels "annotations" .annotations) | nindent 2 }}
+  {{- include "eg.meta" (dict "root" $ "name" (default (printf "%s-backend-tls" $name) .name) "labels" .labels "annotations" .annotations) | nindent 2 }}
 spec:
   {{- toYaml $bspec | nindent 2 }}
-{{- end }}
 {{- end }}
 {{- end }}

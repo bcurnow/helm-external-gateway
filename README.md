@@ -6,11 +6,9 @@ live **outside** the cluster: a NAS, a Home Assistant box, a Prometheus on a VM.
 | Object | Purpose |
 |---|---|
 | `Service` + `EndpointSlice`s | A selector-less Service whose endpoints are the external IPs. IPv4 and IPv6 addresses are split into separate slices automatically, so IPv4-only, IPv6-only and dual-stack all work. |
-| `Gateway` (+ optional `GatewayClass`) | Listeners for HTTP, HTTPS, TLS (terminate or passthrough), TCP, UDP. |
+| `Gateway` | Listeners for HTTP, HTTPS, TLS (terminate or passthrough), TCP, UDP. |
 | `HTTPRoute`, `GRPCRoute`, `TLSRoute`, `TCPRoute`, `UDPRoute` | Any number, any mix. |
-| `Certificate` | Optional, for options the Gateway annotation cannot express (duration, key algorithm, secretTemplate). |
 | `BackendTLSPolicy` | Re-encrypt to the backend and verify it against your own CA bundle or the system roots. |
-| `ConfigMap`, `ReferenceGrant` | CA bundles for the policy above; cross-namespace grants. |
 
 Each piece is optional. With `gateway.enabled=false` it is just a Service in front of external
 endpoints (a `LoadBalancer` Service over a Ceph RGW, say).
@@ -21,7 +19,8 @@ endpoints (a `LoadBalancer` Service over a Ceph RGW, say).
 helm install myapp oci://ghcr.io/bcurnow/charts/external-gateway --version 0.1.0 -f values.yaml
 ```
 
-Requires Gateway API CRDs, a Gateway implementation, and (for `certificate`) cert-manager. The chart
+Requires the Gateway API CRDs and a Gateway implementation (which provides the GatewayClass). For
+certificates, cert-manager with its Gateway API support, or a TLS secret you manage yourself. The chart
 installs none of these.
 
 ## Minimal example
@@ -32,12 +31,12 @@ hostnames:
 gateway:
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
-service:
-  ports:
-    - port: 8080
-  endpoints:
-    - addresses:
-        - 192.0.2.20
+services:
+  - ports:
+      - port: 8080
+    endpoints:
+      - addresses:
+          - 192.0.2.20
 ```
 
 That renders an HTTPS listener for `app.example.com` on a `cilium` Gateway, an `HTTPRoute` sending `/`
@@ -45,35 +44,38 @@ to a Service on port 8080, and an EndpointSlice with the backend address. The li
 is named `app.example.com-tls`. The `cert-manager.io/cluster-issuer` annotation makes cert-manager
 issue that certificate: its [Gateway API support](https://cert-manager.io/docs/usage/gateway/) creates
 a Certificate for every TLS listener of an annotated Gateway. That support has to be enabled in
-cert-manager (`config.enableGatewayAPI: true` in its chart). The chart itself does not render a
-Certificate unless you ask for one.
+cert-manager (`config.enableGatewayAPI: true` in its chart). To use a TLS secret you manage
+yourself instead, set `gateway.defaultListener.secretName`.
 
 Other `gatewayClassName` values go in `gateway.gatewayClassName`. Dual-stack needs only more addresses:
 
 ```yaml
-service:
-  ipFamilyPolicy: PreferDualStack
-  endpoints:
-    - addresses:
-        - 192.0.2.20
-        - "2001:db8::20"
+services:
+  - ipFamilyPolicy: PreferDualStack
+    ports:
+      - port: 8080
+    endpoints:
+      - addresses:
+          - 192.0.2.20
+          - "2001:db8::20"
 ```
 
 Re-encrypt to a backend that serves TLS with a private CA:
 
 ```yaml
-service:
-  ports:
-    - port: 443
-      appProtocol: https
-  backendTLS:
-    enabled: true
-    validation:
-      hostname: backend.example.com
-      caCertificateRefs:
-        - kind: ConfigMap
-          name: my-ca
+services:
+  - ports:
+      - port: 443
+        appProtocol: https
+    backendTLS:
+      validation:
+        hostname: backend.example.com
+        caCertificateRefs:
+          - kind: ConfigMap
+            name: my-ca
 ```
+
+The CA ConfigMap is yours to create; the chart only references it.
 
 More cases are in [`charts/external-gateway/ci/`](charts/external-gateway/ci): IPv4-only HTTP,
 IPv6-only HTTPS, TLS passthrough, TCP and UDP, a LoadBalancer Service with no Gateway, ExternalName,
@@ -87,32 +89,31 @@ in future Gateway API releases, with no chart change.
 
 | Values key | Object | Reserved keys (everything else is spec) |
 |---|---|---|
-| `gatewayClass` | GatewayClass | `enabled name labels annotations` |
-| `gateway` | Gateway | `enabled name namespace labels annotations defaultListener` |
-| `route`, `extraRoutes[]` | `kind`-dependent Route | `enabled kind apiVersion name namespace labels annotations` |
-| `service`, `extraServices[]` | Service (+ slices, policy) | `enabled name namespace labels annotations ports endpoints endpointSlice backendTLS` |
-| `service.backendTLS` | BackendTLSPolicy | `enabled name labels annotations` |
-| `certificate`, `extraCertificates[]` | Certificate | `enabled name namespace labels annotations` |
-| `caConfigMaps[]` | ConfigMap | `name namespace labels annotations` (rest is `data`, `binaryData`, `immutable`) |
-| `referenceGrants[]` | ReferenceGrant | `name namespace labels annotations` |
+| `gateway` | Gateway | `enabled name labels annotations defaultListener` |
+| `routes[]` | `kind`-dependent Route | `kind apiVersion name labels annotations` |
+| `services[]` | Service (+ slices, policy) | `name labels annotations ports endpoints endpointSlice backendTLS` |
+| `services[].backendTLS` | BackendTLSPolicy | `name labels annotations` |
 
 `labels` and `annotations` are available on every object, merged over `commonLabels` and
 `commonAnnotations`. `apiVersions` overrides the apiVersion per kind, for older or experimental
-Gateway API installs.
+Gateway API installs. Everything is created in the release namespace. The GatewayClass, CA
+ConfigMaps and TLS secrets you reference are not managed by the chart.
 
 ### Defaults, so the common case is short
 
 - **Listeners:** with no `gateway.listeners`, one is generated per entry in `hostnames` from
   `gateway.defaultListener` (protocol, port, TLS secret, `tls`, `allowedRoutes`). Set `listeners`
   yourself for anything else.
-- **Routes:** hostnames come from `hostnames`, `parentRefs` point at this release's Gateway, and with
-  no `rules` everything goes to the primary Service. In your own `rules`, a `backendRef` that omits
-  `name` (and `port`) is filled with the primary Service, so a `backendRef` that only sets `weight` works.
-- **TLS secrets:** a generated TLS listener references `<hostname>-tls`; set `gateway.defaultListener.secretName` to use one secret for all of them. An explicit `certificate` defaults `dnsNames` to `hostnames` and `secretName` to `<first name>-tls`, and generated listeners then use that secret.
+- **Routes:** with no `routes` at all, one HTTPRoute sends everything to the first Service. For each
+  route, hostnames come from `hostnames`, `parentRefs` point at this release's Gateway, and with no
+  `rules` everything goes to the first Service. In your own `rules`, a `backendRef` that omits
+  `name` (and `port`) is filled with the first Service, so a `backendRef` that only sets `weight` works.
+- **TLS secrets:** a generated TLS listener references `<hostname>-tls`. Set
+  `gateway.defaultListener.secretName` to use one secret you manage for all of them.
 - **EndpointSlices:** named `<service>-<port>` and `<service>-<port>-v6`; `conditions` defaults to
-  `{ready: true}`. The numeric slice port comes from `endpointPort`, else `targetPort`, else `port`.
+  `ready: true`. The numeric slice port comes from `endpointPort`, else `targetPort`, else `port`.
   Set `endpointPort` when `targetPort` is a name.
-- **Naming:** the primary Service, Gateway and `<name>-default-route` take the release name. Set
+- **Naming:** the first Service, the Gateway and `<name>-default-route` take the release name. Set
   `fullnameOverride`, or any object's `name`, to adopt existing objects without renaming them.
 
 ### Notes
