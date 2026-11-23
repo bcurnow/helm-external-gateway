@@ -44,5 +44,8 @@ jobs:
       - uses: helm/kind-action@v1.10.0
       - name: Notes report addresses that were left out
         run: |
+          base=https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.3/config/crd/standard
+          kubectl apply -f $base/gateway.networking.k8s.io_gateways.yaml \
+                        -f $base/gateway.networking.k8s.io_httproutes.yaml
           cd charts/external-gateway
           helm install t . -n default -f ci/ipv4-only-http-values.yaml --dry-run=client | grep -q "NOT rendered"
