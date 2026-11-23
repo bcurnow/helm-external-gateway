@@ -1,0 +1,14 @@
+# No Gateway: a LoadBalancer Service over out-of-cluster backends (e.g. an object store).
+fullnameOverride: store
+gateway: {enabled: false}
+route: {enabled: false}
+service:
+  type: LoadBalancer
+  ipFamilyPolicy: PreferDualStack
+  annotations:
+    example.com/lb-ips: 192.0.2.70,2001:db8::70
+  ports:
+    - {name: port-443, port: 443, endpointPort: 7480}
+  endpoints:
+    - {hostname: node1, addresses: [192.0.2.71, "2001:db8::71"]}
+    - {hostname: node2, addresses: [192.0.2.72, "2001:db8::72"], conditions: {}}

@@ -1,0 +1,116 @@
+# Exercises metadata on every object, multiple listeners, routes, certificates, services,
+# ReferenceGrants and ConfigMaps.
+fullnameOverride: sink
+hostnames: [a.example.com, b.example.com]
+commonLabels: {team: infra}
+commonAnnotations: {owner: infra}
+gatewayClass:
+  enabled: true
+  name: example
+  labels: {l: gc}
+  annotations: {a: gc}
+  controllerName: example.com/gateway-controller
+  description: test
+gateway:
+  name: sink-gw
+  namespace: gwns
+  labels: {l: gw}
+  annotations: {a: gw}
+  gatewayClassName: example
+  addresses:
+    - {type: IPAddress, value: 192.0.2.80}
+  allowedListeners: {namespaces: {from: All}}
+  infrastructure:
+    labels: {l: infra}
+    annotations: {a: infra}
+  defaultListener:
+    secretName: shared-tls
+    allowedRoutes: {namespaces: {from: All}}
+route:
+  name: sink-http
+  namespace: appns
+  labels: {l: route}
+  annotations: {a: route}
+  rules:
+    - matches:
+        - path: {type: PathPrefix, value: /api}
+      filters:
+        - type: URLRewrite
+          urlRewrite: {path: {type: ReplacePrefixMatch, replacePrefixMatch: /}}
+      backendRefs:
+        - {weight: 90}
+        - {name: other, port: 8080, weight: 10}
+    - filters:
+        - type: RequestRedirect
+          requestRedirect: {scheme: https, statusCode: 301}
+extraRoutes:
+  - kind: GRPCRoute
+    hostnames: [grpc.example.com]
+    rules:
+      - matches: [{method: {service: pkg.Svc}}]
+        backendRefs: [{}]
+  - kind: HTTPRoute
+    enabled: false
+certificate:
+  enabled: true
+  name: sink-cert
+  namespace: gwns
+  labels: {l: cert}
+  annotations: {a: cert}
+  secretName: shared-tls
+  issuerRef: {name: example-issuer, kind: ClusterIssuer, group: cert-manager.io}
+  duration: 2160h
+  renewBefore: 360h
+  commonName: a.example.com
+  privateKey: {algorithm: ECDSA, size: 256, rotationPolicy: Always}
+  usages: [digital signature, key encipherment]
+  secretTemplate: {annotations: {reflector: "true"}, labels: {s: tpl}}
+  additionalOutputFormats: [{type: CombinedPEM}]
+  revisionHistoryLimit: 3
+extraCertificates:
+  - name: second-cert
+    issuerRef: {name: example-issuer}
+    dnsNames: [c.example.com]
+service:
+  name: sink-backend
+  namespace: appns
+  labels: {l: svc}
+  annotations: {a: svc}
+  sessionAffinity: ClientIP
+  ports:
+    - {name: https, port: 443, targetPort: 8443, appProtocol: https}
+  endpoints:
+    - {hostname: h1, nodeName: n1, zone: z1, addresses: ["192.0.2.81"], conditions: {ready: true, serving: true, terminating: false}}
+  endpointSlice:
+    nameIPv4: sink-slice
+    labels: {l: slice}
+    annotations: {a: slice}
+  backendTLS:
+    enabled: true
+    name: sink-btls
+    labels: {l: btls}
+    annotations: {a: btls}
+    options: {example.com/opt: "1"}
+    validation:
+      hostname: backend.example.com
+      wellKnownCACertificates: System
+      subjectAltNames:
+        - {type: Hostname, hostname: backend.example.com}
+extraServices:
+  - name: other
+    namespace: appns
+    selector: {app: other}
+    ports: [{name: http, port: 8080}]
+caConfigMaps:
+  - name: example-ca
+    labels: {l: cm}
+    annotations: {a: cm}
+    data: {ca.crt: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n"}
+    immutable: true
+referenceGrants:
+  - name: allow-gw
+    namespace: appns
+    labels: {l: rg}
+    annotations: {a: rg}
+    from: [{group: gateway.networking.k8s.io, kind: HTTPRoute, namespace: gwns}]
+    to: [{group: "", kind: Service}]

@@ -1,0 +1,57 @@
+{{- $routes := list }}
+{{- if .Values.route.enabled }}{{- $routes = append $routes .Values.route }}{{- end }}
+{{- range .Values.extraRoutes }}{{- if include "eg.isEnabled" . }}{{- $routes = append $routes . }}{{- end }}{{- end }}
+{{- $prim := include "eg.primary" . | fromYaml }}
+{{- range $i, $r := $routes }}
+{{- $kind := default "HTTPRoute" $r.kind }}
+{{- $apiVersion := default (get $.Values.apiVersions $kind) $r.apiVersion }}
+{{- if not $apiVersion }}{{- fail (printf "unknown route kind %s" $kind) }}{{- end }}
+{{- $spec := deepCopy (omit $r "enabled" "kind" "apiVersion" "name" "namespace" "labels" "annotations") }}
+{{- if and (not $spec.hostnames) $.Values.hostnames (has $kind (list "HTTPRoute" "GRPCRoute" "TLSRoute")) }}
+{{- $_ := set $spec "hostnames" $.Values.hostnames }}
+{{- end }}
+{{- if not $spec.parentRefs }}
+{{- if not $.Values.gateway.enabled }}{{- fail "routes need parentRefs when gateway.enabled is false" }}{{- end }}
+{{- $pr := dict "name" (include "eg.gatewayName" $) }}
+{{- $gwns := default $.Release.Namespace $.Values.gateway.namespace }}
+{{- if ne (default $.Release.Namespace $r.namespace) $gwns }}{{- $_ := set $pr "namespace" $gwns }}{{- end }}
+{{- $_ := set $spec "parentRefs" (list $pr) }}
+{{- end }}
+{{- $default := dict }}
+{{- if $.Values.service.enabled }}{{- $default = deepCopy $prim }}{{- end }}
+{{- if not $spec.rules }}
+{{- if not $default.name }}{{- fail "routes without rules need service.enabled and service.ports" }}{{- end }}
+{{- $rule := dict "backendRefs" (list (deepCopy $default)) }}
+{{- if eq $kind "HTTPRoute" }}{{- $_ := set $rule "matches" (list (dict "path" (dict "type" "PathPrefix" "value" "/"))) }}{{- end }}
+{{- $_ := set $spec "rules" (list $rule) }}
+{{- else }}
+{{- $rules := list }}
+{{- range $rule := $spec.rules }}
+{{- $rule = deepCopy $rule }}
+{{- if hasKey $rule "backendRefs" }}
+{{- $refs := list }}
+{{- range $ref := $rule.backendRefs }}
+{{- $ref = deepCopy (default (dict) $ref) }}
+{{- if not $ref.name }}
+{{- if not $default.name }}{{- fail "a backendRef without name needs service.enabled" }}{{- end }}
+{{- $_ := set $ref "name" $default.name }}
+{{- if not (hasKey $ref "port") }}{{- if hasKey $default "port" }}{{- $_ := set $ref "port" $default.port }}{{- end }}{{- end }}
+{{- end }}
+{{- $refs = append $refs $ref }}
+{{- end }}
+{{- $_ := set $rule "backendRefs" $refs }}
+{{- end }}
+{{- $rules = append $rules $rule }}
+{{- end }}
+{{- $_ := set $spec "rules" $rules }}
+{{- end }}
+{{- $name := $r.name }}
+{{- if not $name }}{{- if eq $i 0 }}{{- $name = printf "%s-default-route" (include "eg.fullname" $) }}{{- else }}{{- $name = printf "%s-route-%d" (include "eg.fullname" $) $i }}{{- end }}{{- end }}
+---
+apiVersion: {{ $apiVersion }}
+kind: {{ $kind }}
+metadata:
+  {{- include "eg.meta" (dict "root" $ "name" $name "namespace" $r.namespace "labels" $r.labels "annotations" $r.annotations) | nindent 2 }}
+spec:
+  {{- toYaml $spec | nindent 2 }}
+{{- end }}

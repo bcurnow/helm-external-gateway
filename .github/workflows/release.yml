@@ -1,0 +1,25 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+  packages: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+      - name: Chart version must match the tag
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          have=$(grep '^version:' charts/external-gateway/Chart.yaml | awk '{print $2}')
+          [ "$want" = "$have" ] || { echo "tag $want != Chart.yaml version $have"; exit 1; }
+      - name: Package and push
+        run: |
+          helm package charts/external-gateway
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          helm push external-gateway-*.tgz "oci://ghcr.io/${{ github.repository_owner }}/charts"

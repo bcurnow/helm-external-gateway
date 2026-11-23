@@ -1,0 +1,79 @@
+{{- $svcs := list }}
+{{- if .Values.service.enabled }}{{- $svcs = append $svcs (set (deepCopy .Values.service) "__primary" true) }}{{- end }}
+{{- range .Values.extraServices }}{{- if include "eg.isEnabled" . }}{{- $svcs = append $svcs . }}{{- end }}{{- end }}
+{{- range $svc := $svcs }}
+{{- $name := "" }}
+{{- if $svc.name }}{{- $name = $svc.name }}{{- else if hasKey $svc "__primary" }}{{- $name = include "eg.fullname" $ }}{{- else }}{{- fail "extraServices[].name is required" }}{{- end }}
+{{- $spec := deepCopy (omit $svc "__primary" "enabled" "name" "namespace" "labels" "annotations" "ports" "endpoints" "endpointSlice" "backendTLS") }}
+{{- if $svc.ports }}
+{{- $ports := list }}
+{{- range $p := $svc.ports }}{{- $ports = append $ports (omit $p "endpointPort") }}{{- end }}
+{{- $_ := set $spec "ports" $ports }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  {{- include "eg.meta" (dict "root" $ "name" $name "namespace" $svc.namespace "labels" $svc.labels "annotations" $svc.annotations) | nindent 2 }}
+spec:
+  {{- toYaml $spec | nindent 2 }}
+{{- if $svc.endpoints }}
+{{- $slicePorts := list }}
+{{- range $p := $svc.ports }}
+{{- $num := "" }}
+{{- if $p.endpointPort }}{{- $num = $p.endpointPort }}
+{{- else if $p.targetPort }}
+{{- if kindIs "string" $p.targetPort }}{{- fail (printf "service %s: port %v has a named targetPort, set endpointPort to the numeric port" $name $p.name) }}{{- end }}
+{{- $num = $p.targetPort }}
+{{- else }}{{- $num = $p.port }}{{- end }}
+{{- $sp := dict "port" (int $num) "protocol" (default "TCP" $p.protocol) }}
+{{- if $p.name }}{{- $_ := set $sp "name" $p.name }}{{- end }}
+{{- if $p.appProtocol }}{{- $_ := set $sp "appProtocol" $p.appProtocol }}{{- end }}
+{{- $slicePorts = append $slicePorts $sp }}
+{{- end }}
+{{- if not $slicePorts }}{{- fail (printf "service %s has endpoints but no ports" $name) }}{{- end }}
+{{- $es := default (dict) $svc.endpointSlice }}
+{{- $v4name := default (printf "%s-%d" $name (int (first $slicePorts).port)) $es.nameIPv4 }}
+{{- $v6name := default (printf "%s-%d-v6" $name (int (first $slicePorts).port)) $es.nameIPv6 }}
+{{- range $fam := (list (dict "type" "IPv4" "name" $v4name) (dict "type" "IPv6" "name" $v6name)) }}
+{{- $eps := list }}
+{{- range $e := $svc.endpoints }}
+{{- $addrs := list }}
+{{- range $a := $e.addresses }}
+{{- if eq (eq $fam.type "IPv6") (contains ":" $a) }}{{- $addrs = append $addrs $a }}{{- end }}
+{{- end }}
+{{- if $addrs }}
+{{- $ep := deepCopy $e }}
+{{- $_ := set $ep "addresses" $addrs }}
+{{- if not (hasKey $ep "conditions") }}{{- $_ := set $ep "conditions" (dict "ready" true) }}{{- end }}
+{{- $eps = append $eps $ep }}
+{{- end }}
+{{- end }}
+{{- if $eps }}
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  {{- include "eg.meta" (dict "root" $ "name" $fam.name "namespace" $svc.namespace "labels" (merge (dict "kubernetes.io/service-name" $name) (default (dict) $es.labels)) "annotations" $es.annotations) | nindent 2 }}
+addressType: {{ $fam.type }}
+ports:
+  {{- toYaml $slicePorts | nindent 2 }}
+endpoints:
+  {{- toYaml $eps | nindent 2 }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- with $svc.backendTLS }}
+{{- if .enabled }}
+{{- $bspec := deepCopy (omit . "enabled" "name" "namespace" "labels" "annotations") }}
+{{- if not $bspec.targetRefs }}{{- $_ := set $bspec "targetRefs" (list (dict "group" "" "kind" "Service" "name" $name)) }}{{- end }}
+---
+apiVersion: {{ $.Values.apiVersions.BackendTLSPolicy }}
+kind: BackendTLSPolicy
+metadata:
+  {{- include "eg.meta" (dict "root" $ "name" (default (printf "%s-backend-tls" $name) .name) "namespace" (default $svc.namespace .namespace) "labels" .labels "annotations" .annotations) | nindent 2 }}
+spec:
+  {{- toYaml $bspec | nindent 2 }}
+{{- end }}
+{{- end }}
+{{- end }}

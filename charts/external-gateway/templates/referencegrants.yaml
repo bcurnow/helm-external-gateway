@@ -1,0 +1,9 @@
+{{- range $rg := .Values.referenceGrants }}
+---
+apiVersion: {{ $.Values.apiVersions.ReferenceGrant }}
+kind: ReferenceGrant
+metadata:
+  {{- include "eg.meta" (dict "root" $ "name" (required "referenceGrants[].name is required" $rg.name) "namespace" $rg.namespace "labels" $rg.labels "annotations" $rg.annotations) | nindent 2 }}
+spec:
+  {{- toYaml (omit $rg "name" "namespace" "labels" "annotations") | nindent 2 }}
+{{- end }}

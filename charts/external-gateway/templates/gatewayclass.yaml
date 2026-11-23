@@ -1,0 +1,10 @@
+{{- if .Values.gatewayClass.enabled }}
+{{- $gc := .Values.gatewayClass }}
+{{- $spec := omit $gc "enabled" "name" "namespace" "labels" "annotations" }}
+apiVersion: {{ .Values.apiVersions.GatewayClass }}
+kind: GatewayClass
+metadata:
+  {{- include "eg.meta" (dict "root" $ "name" (required "gatewayClass.name is required" $gc.name) "labels" $gc.labels "annotations" $gc.annotations "clusterScoped" true) | nindent 2 }}
+spec:
+  {{- toYaml $spec | nindent 2 }}
+{{- end }}

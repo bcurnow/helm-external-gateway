@@ -1,0 +1,19 @@
+fullnameOverride: six
+hostnames: [six.example.com]
+gateway:
+  gatewayClassName: example
+certificate:
+  enabled: true
+  issuerRef: {name: example-issuer, kind: Issuer}
+service:
+  ipFamilies: [IPv6]
+  ipFamilyPolicy: SingleStack
+  ports:
+    - {name: https, port: 443, targetPort: 8443, appProtocol: https}
+  endpoints:
+    - addresses: ["2001:db8::40"]
+route:
+  rules:
+    - matches: [{path: {type: PathPrefix, value: /}}]
+      timeouts: {request: 0s}
+      backendRefs: [{}]
