@@ -28,10 +28,29 @@ spec:
 {{- $slicePorts = append $slicePorts $sp }}
 {{- end }}
 {{- if not $slicePorts }}{{- fail (printf "service %s has endpoints but no ports" $name) }}{{- end }}
+{{- /* Families: slices follow the Service's ipFamilies; the addresses must agree with it. */}}
+{{- $allowed := default (list) $svc.ipFamilies }}
+{{- $has4 := false }}
+{{- $has6 := false }}
+{{- range $e := $svc.endpoints }}
+{{- $ok := not $allowed }}
+{{- range $a := $e.addresses }}
+{{- $fam := "IPv4" }}
+{{- if contains ":" $a }}{{- $fam = "IPv6" }}{{- end }}
+{{- if eq $fam "IPv6" }}{{- $has6 = true }}{{- else }}{{- $has4 = true }}{{- end }}
+{{- if has $fam $allowed }}{{- $ok = true }}{{- end }}
+{{- end }}
+{{- if not $ok }}{{- fail (printf "service %s: endpoint %s has no address in ipFamilies %v" $name (default "(unnamed)" $e.hostname) $allowed) }}{{- end }}
+{{- end }}
+{{- if and (not $allowed) $has4 $has6 }}
+{{- if not $svc.ipFamilyPolicy }}{{- fail (printf "service %s: endpoints use both IPv4 and IPv6, so set ipFamilyPolicy (PreferDualStack or RequireDualStack), or ipFamilies to choose one" $name) }}{{- end }}
+{{- if eq $svc.ipFamilyPolicy "SingleStack" }}{{- fail (printf "service %s: endpoints use both IPv4 and IPv6 but ipFamilyPolicy is SingleStack without ipFamilies; set ipFamilies to the family to serve" $name) }}{{- end }}
+{{- end }}
 {{- $es := default (dict) $svc.endpointSlice }}
 {{- $v4name := default (printf "%s-%d" $name (int (first $slicePorts).port)) $es.nameIPv4 }}
 {{- $v6name := default (printf "%s-%d-v6" $name (int (first $slicePorts).port)) $es.nameIPv6 }}
 {{- range $fam := (list (dict "type" "IPv4" "name" $v4name) (dict "type" "IPv6" "name" $v6name)) }}
+{{- if or (not $allowed) (has $fam.type $allowed) }}
 {{- $eps := list }}
 {{- range $e := $svc.endpoints }}
 {{- $addrs := list }}
@@ -56,6 +75,7 @@ ports:
   {{- toYaml $slicePorts | nindent 2 }}
 endpoints:
   {{- toYaml $eps | nindent 2 }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

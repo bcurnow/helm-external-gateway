@@ -1,3 +1,4 @@
+# IPv4-only Service: the IPv6 address is not given a slice.
 fullnameOverride: plain
 gateway:
   listeners:
@@ -17,3 +18,4 @@ services:
   endpoints:
   - addresses:
     - 192.0.2.30
+    - 2001:db8::30

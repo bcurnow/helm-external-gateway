@@ -87,10 +87,12 @@ services: []
 # plus endpointPort: the number written into the EndpointSlice port. It defaults to targetPort
 # (or port when there is no targetPort) and must be set when targetPort is a name.
 # endpoints: each item is a native EndpointSlice endpoint (hostname, nodeName, zone, conditions,
-# targetRef, hints) with `addresses` as a mixed list of IPv4 and IPv6 addresses. The chart splits
-# them into one IPv4 and one IPv6 EndpointSlice and omits a slice for a family with no addresses.
-# conditions defaults to ready: true. Leave endpoints out for selector-based or ExternalName
-# Services.
+# targetRef, hints) with `addresses` as a mixed list of IPv4 and IPv6 addresses, checked by the
+# values schema. The chart splits them into one IPv4 and one IPv6 EndpointSlice and omits a slice
+# for a family with no addresses. With ipFamilies set, only those families get a slice, and every
+# endpoint needs an address in one of them. When the addresses use both families, ipFamilyPolicy
+# (not SingleStack) or ipFamilies must be set; the chart does not guess. conditions defaults to
+# ready: true. Leave endpoints out for selector-based or ExternalName Services.
 # endpointSlice: nameIPv4, nameIPv6, labels, annotations. Names default to
 # <service>-<first port> and <service>-<first port>-v6.
 # backendTLS: a BackendTLSPolicy for the Service. Reserved keys: name, labels, annotations. Spec

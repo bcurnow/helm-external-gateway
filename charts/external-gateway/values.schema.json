@@ -173,7 +173,15 @@
                 "addresses": {
                   "type": "array",
                   "items": {
-                    "type": "string"
+                    "type": "string",
+                    "anyOf": [
+                      {
+                        "format": "ipv4"
+                      },
+                      {
+                        "format": "ipv6"
+                      }
+                    ]
                   },
                   "minItems": 1
                 }
@@ -225,6 +233,22 @@
                 }
               }
             }
+          },
+          "ipFamilies": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "IPv4",
+                "IPv6"
+              ]
+            }
+          },
+          "ipFamilyPolicy": {
+            "enum": [
+              "SingleStack",
+              "PreferDualStack",
+              "RequireDualStack"
+            ]
           }
         },
         "required": [

@@ -54,7 +54,8 @@ creates a Certificate for every TLS listener of an annotated Gateway. That suppo
 cert-manager (`config.enableGatewayAPI: true` in its chart). To use a TLS secret you manage yourself,
 point `certificateRefs` at it and leave the annotation off.
 
-Other `gatewayClassName` values go in `gateway.gatewayClassName`. Dual-stack needs only more addresses:
+Other `gatewayClassName` values go in `gateway.gatewayClassName`. Dual-stack needs more addresses and an explicit policy, since the chart never guesses the Service's
+families:
 
 ```yaml
 services:
@@ -121,6 +122,11 @@ ConfigMaps and TLS secrets you reference are not managed by the chart.
 - **EndpointSlices:** named `<service>-<port>` and `<service>-<port>-v6`; `conditions` defaults to
   `ready: true`. The numeric slice port comes from `endpointPort`, else `targetPort`, else `port`.
   Set `endpointPort` when `targetPort` is a name.
+- **IP families:** addresses are validated as IPv4 or IPv6 by the values schema, then split into one
+  slice per family. With `ipFamilies` set, only those families get a slice, and an endpoint with no
+  address in them fails the render. If the addresses use both families, `ipFamilyPolicy` (not
+  `SingleStack`) or `ipFamilies` must be set, or the render fails. Nothing is derived for you.
+  `helm --skip-schema-validation` turns the address check off.
 - **Adopting existing objects:** the Gateway is named after the release, so set `fullnameOverride`
   or `gateway.name` to match, and give services and routes the names they already have.
 
