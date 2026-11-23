@@ -1,21 +1,35 @@
 fullnameOverride: l4
 gateway:
-  gatewayClassName: example
   listeners:
-    - {name: tcp, port: 5432, protocol: TCP}
-    - {name: udp, port: 5353, protocol: UDP}
+  - name: tcp
+    port: 5432
+    protocol: TCP
+  - name: udp
+    port: 5353
+    protocol: UDP
 service:
   ports:
-    - {name: tcp, port: 5432, protocol: TCP}
-    - {name: udp, port: 5353, protocol: UDP}
+  - name: tcp
+    port: 5432
+    protocol: TCP
+  - name: udp
+    port: 5353
+    protocol: UDP
   endpoints:
-    - addresses: [192.0.2.60]
+  - addresses:
+    - 192.0.2.60
 route:
   kind: TCPRoute
-  parentRefs: [{name: l4, sectionName: tcp}]
+  parentRefs:
+  - name: l4
+    sectionName: tcp
 extraRoutes:
-  - kind: UDPRoute
-    name: l4-udp
-    parentRefs: [{name: l4, sectionName: udp}]
-    rules:
-      - backendRefs: [{name: l4, port: 5353}]
+- kind: UDPRoute
+  name: l4-udp
+  parentRefs:
+  - name: l4
+    sectionName: udp
+  rules:
+  - backendRefs:
+    - name: l4
+      port: 5353

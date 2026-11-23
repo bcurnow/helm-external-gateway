@@ -8,7 +8,7 @@ live **outside** the cluster: a NAS, a Home Assistant box, a Prometheus on a VM.
 | `Service` + `EndpointSlice`s | A selector-less Service whose endpoints are the external IPs. IPv4 and IPv6 addresses are split into separate slices automatically, so IPv4-only, IPv6-only and dual-stack all work. |
 | `Gateway` (+ optional `GatewayClass`) | Listeners for HTTP, HTTPS, TLS (terminate or passthrough), TCP, UDP. |
 | `HTTPRoute`, `GRPCRoute`, `TLSRoute`, `TCPRoute`, `UDPRoute` | Any number, any mix. |
-| `Certificate` | cert-manager certificate for the listener. |
+| `Certificate` | Optional, for options the Gateway annotation cannot express (duration, key algorithm, secretTemplate). |
 | `BackendTLSPolicy` | Re-encrypt to the backend and verify it against your own CA bundle or the system roots. |
 | `ConfigMap`, `ReferenceGrant` | CA bundles for the policy above; cross-namespace grants. |
 
@@ -27,30 +27,54 @@ installs none of these.
 ## Minimal example
 
 ```yaml
-hostnames: [app.example.com]
+hostnames:
+  - app.example.com
 gateway:
-  gatewayClassName: cilium
-  infrastructure:
-    annotations:
-      lbipam.cilium.io/ips: 192.0.2.10,2001:db8::10   # implementation-specific, passed through as-is
-certificate:
-  enabled: true
-  issuerRef: {group: cert-manager.io, kind: ClusterIssuer, name: letsencrypt}
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
 service:
   ports:
-    - {name: https, port: 443, targetPort: 8443, appProtocol: https}
+    - port: 8080
   endpoints:
-    - hostname: backend1
-      addresses: [192.0.2.20, "2001:db8::20"]
+    - addresses:
+        - 192.0.2.20
+```
+
+That renders an HTTPS listener for `app.example.com` on a `cilium` Gateway, an `HTTPRoute` sending `/`
+to a Service on port 8080, and an EndpointSlice with the backend address. The listener's TLS secret
+is named `app.example.com-tls`. The `cert-manager.io/cluster-issuer` annotation makes cert-manager
+issue that certificate: its [Gateway API support](https://cert-manager.io/docs/usage/gateway/) creates
+a Certificate for every TLS listener of an annotated Gateway. That support has to be enabled in
+cert-manager (`config.enableGatewayAPI: true` in its chart). The chart itself does not render a
+Certificate unless you ask for one.
+
+Other `gatewayClassName` values go in `gateway.gatewayClassName`. Dual-stack needs only more addresses:
+
+```yaml
+service:
+  ipFamilyPolicy: PreferDualStack
+  endpoints:
+    - addresses:
+        - 192.0.2.20
+        - "2001:db8::20"
+```
+
+Re-encrypt to a backend that serves TLS with a private CA:
+
+```yaml
+service:
+  ports:
+    - port: 443
+      appProtocol: https
   backendTLS:
     enabled: true
     validation:
       hostname: backend.example.com
-      wellKnownCACertificates: System
+      caCertificateRefs:
+        - kind: ConfigMap
+          name: my-ca
 ```
 
-That renders an HTTPS listener for `app.example.com` using the certificate's secret, an `HTTPRoute`
-sending `/` to the Service, a Service with an IPv4 and an IPv6 EndpointSlice, and a BackendTLSPolicy.
 More cases are in [`charts/external-gateway/ci/`](charts/external-gateway/ci): IPv4-only HTTP,
 IPv6-only HTTPS, TLS passthrough, TCP and UDP, a LoadBalancer Service with no Gateway, ExternalName,
 and a kitchen-sink that sets metadata on every object.
@@ -84,7 +108,7 @@ Gateway API installs.
 - **Routes:** hostnames come from `hostnames`, `parentRefs` point at this release's Gateway, and with
   no `rules` everything goes to the primary Service. In your own `rules`, a `backendRef` that omits
   `name` (and `port`) is filled with the primary Service, so `backendRefs: [{weight: 90}]` works.
-- **Certificates:** `dnsNames` defaults to `hostnames`, `secretName` to `<first name>-tls`.
+- **TLS secrets:** a generated TLS listener references `<hostname>-tls`; set `gateway.defaultListener.secretName` to use one secret for all of them. An explicit `certificate` defaults `dnsNames` to `hostnames` and `secretName` to `<first name>-tls`, and generated listeners then use that secret.
 - **EndpointSlices:** named `<service>-<port>` and `<service>-<port>-v6`; `conditions` defaults to
   `{ready: true}`. The numeric slice port comes from `endpointPort`, else `targetPort`, else `port`.
   Set `endpointPort` when `targetPort` is a name.

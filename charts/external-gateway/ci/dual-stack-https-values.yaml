@@ -1,24 +1,30 @@
 # HTTPS gateway in front of a dual-stack backend that re-encrypts with a private CA.
 fullnameOverride: app
-hostnames: [app.example.com]
+hostnames:
+- app.example.com
 gateway:
-  gatewayClassName: example
   infrastructure:
     annotations:
       example.com/lb-ips: 192.0.2.10,2001:db8::10
-certificate:
-  enabled: true
-  issuerRef: {group: cert-manager.io, kind: ClusterIssuer, name: example-issuer}
+  annotations:
+    cert-manager.io/cluster-issuer: example-issuer
 service:
   ipFamilyPolicy: PreferDualStack
   ports:
-    - {name: port-80, port: 80, targetPort: 9093, protocol: TCP}
+  - name: port-80
+    port: 80
+    targetPort: 9093
+    protocol: TCP
   endpoints:
-    - hostname: backend1
-      addresses: [192.0.2.20, "2001:db8::20"]
+  - hostname: backend1
+    addresses:
+    - 192.0.2.20
+    - 2001:db8::20
   backendTLS:
     enabled: true
     validation:
       hostname: backend.example.com
       caCertificateRefs:
-        - {group: "", kind: ConfigMap, name: example-ca}
+      - group: ''
+        kind: ConfigMap
+        name: example-ca

@@ -16,8 +16,8 @@
 {{- if $dl.allowedRoutes }}{{- $_ := set $l "allowedRoutes" (deepCopy $dl.allowedRoutes) }}{{- end }}
 {{- if or (eq $dl.protocol "HTTPS") (eq $dl.protocol "TLS") }}
 {{- $tls := deepCopy (default (dict) $dl.tls) }}
-{{- if and $secret (not (hasKey $tls "certificateRefs")) (ne (default "Terminate" $tls.mode) "Passthrough") }}
-{{- $_ := set $tls "certificateRefs" (list (dict "name" $secret)) }}
+{{- if and (not (hasKey $tls "certificateRefs")) (ne (default "Terminate" $tls.mode) "Passthrough") }}
+{{- $_ := set $tls "certificateRefs" (list (dict "name" (default (printf "%s-tls" $h) $secret))) }}
 {{- end }}
 {{- if $tls }}{{- $_ := set $l "tls" $tls }}{{- end }}
 {{- end }}

@@ -1,0 +1,12 @@
+# The README's minimal example.
+hostnames:
+  - app.example.com
+gateway:
+  annotations:
+    cert-manager.io/cluster-issuer: example-issuer
+service:
+  ports:
+    - port: 8080
+  endpoints:
+    - addresses:
+        - 192.0.2.20

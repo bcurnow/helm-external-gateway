@@ -1,10 +1,13 @@
 fullnameOverride: ext
-hostnames: [ext.example.com]
+hostnames:
+- ext.example.com
 gateway:
-  gatewayClassName: example
-  defaultListener: {protocol: HTTP, port: 80}
+  defaultListener:
+    protocol: HTTP
+    port: 80
 service:
   type: ExternalName
   externalName: backend.example.net
   ports:
-    - {name: http, port: 80}
+  - name: http
+    port: 80

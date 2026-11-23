@@ -1,15 +1,19 @@
 fullnameOverride: pass
-hostnames: [pass.example.com]
+hostnames:
+- pass.example.com
 gateway:
-  gatewayClassName: example
   defaultListener:
     protocol: TLS
     port: 443
-    tls: {mode: Passthrough}
+    tls:
+      mode: Passthrough
 route:
   kind: TLSRoute
 service:
   ports:
-    - {name: tls, port: 443, targetPort: 8443}
+  - name: tls
+    port: 443
+    targetPort: 8443
   endpoints:
-    - addresses: [192.0.2.50]
+  - addresses:
+    - 192.0.2.50

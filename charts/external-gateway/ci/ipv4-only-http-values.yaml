@@ -1,12 +1,18 @@
 fullnameOverride: plain
-hostnames: [plain.example.com]
+hostnames:
+- plain.example.com
 gateway:
-  gatewayClassName: example
-  defaultListener: {protocol: HTTP, port: 80}
+  defaultListener:
+    protocol: HTTP
+    port: 80
 service:
-  ipFamilies: [IPv4]
+  ipFamilies:
+  - IPv4
   ipFamilyPolicy: SingleStack
   ports:
-    - {name: http, port: 80, targetPort: 8080}
+  - name: http
+    port: 80
+    targetPort: 8080
   endpoints:
-    - addresses: [192.0.2.30]
+  - addresses:
+    - 192.0.2.30

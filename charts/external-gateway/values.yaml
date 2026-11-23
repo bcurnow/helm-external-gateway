@@ -50,7 +50,12 @@ gateway:
   namespace: ""
   labels: {}
   annotations: {}
-  gatewayClassName: ""
+  gatewayClassName: cilium
+  # Certificates: annotate the Gateway and cert-manager's Gateway API support issues one per TLS
+  # listener, named after the listener's secret.
+  # annotations:
+  #   cert-manager.io/cluster-issuer: my-issuer
+  # Implementation-specific settings, such as pinned load balancer addresses:
   # infrastructure:
   #   annotations:
   #     lbipam.cilium.io/ips: 192.0.2.10,2001:db8::10
@@ -59,7 +64,8 @@ gateway:
   defaultListener:
     protocol: HTTPS
     port: 443
-    # TLS secret for HTTPS and TLS listeners. Defaults to the primary certificate's secret.
+    # TLS secret for HTTPS and TLS listeners. Defaults to <hostname>-tls per listener, or to the
+    # primary certificate's secret when `certificate` is enabled.
     secretName: ""
     # Extra listener.tls fields (mode, options, certificateRefs, ...).
     tls: {}
@@ -129,12 +135,16 @@ service:
     # validation:
     #   hostname: backend.example.com
     #   caCertificateRefs:
-    #     - {group: "", kind: ConfigMap, name: my-ca}
+    #     - group: ""
+    #       kind: ConfigMap
+    #       name: my-ca
 
 # -- Additional Services, each with the same keys as `service`. `name` is required.
 extraServices: []
 
-# -- The primary cert-manager Certificate. Reserved keys: enabled, name, namespace, labels,
+# -- Optional explicit cert-manager Certificate, for options the Gateway annotation cannot express
+# (duration, privateKey, secretTemplate, ...). Most setups should annotate the Gateway instead.
+# Reserved keys: enabled, name, namespace, labels,
 # annotations. Every other key is a Certificate spec field (issuerRef, secretName, dnsNames,
 # duration, renewBefore, privateKey, usages, secretTemplate, keystores, additionalOutputFormats,
 # ...). issuerRef is required. dnsNames defaults to the top-level hostnames, secretName to
@@ -145,7 +155,9 @@ certificate:
   namespace: ""
   labels: {}
   annotations: {}
-  # issuerRef: {group: cert-manager.io, kind: ClusterIssuer, name: my-issuer}
+  # issuerRef:
+  #   kind: ClusterIssuer
+  #   name: my-issuer
 
 # -- Additional Certificates, each with the same keys as `certificate`.
 extraCertificates: []
