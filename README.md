@@ -27,8 +27,6 @@ installs none of these.
 
 ```yaml
 gateway:
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt
   listeners:
     - name: https
       hostname: app.example.com
@@ -47,12 +45,19 @@ services:
 ```
 
 That renders an HTTPS listener for `app.example.com` on a `cilium` Gateway, an `HTTPRoute` sending `/`
-to a Service on port 8080, and an EndpointSlice with the backend address. The
-`cert-manager.io/cluster-issuer` annotation makes cert-manager issue the certificate named by the
-listener's `certificateRefs`: its [Gateway API support](https://cert-manager.io/docs/usage/gateway/)
-creates a Certificate for every TLS listener of an annotated Gateway. That support has to be enabled in
-cert-manager (`config.enableGatewayAPI: true` in its chart). To use a TLS secret you manage yourself,
-point `certificateRefs` at it and leave the annotation off.
+to a Service on port 8080, and an EndpointSlice with the backend address. The TLS secret
+`app-example-com-tls` is yours to provide, from whatever source you use.
+
+To have cert-manager issue it, annotate the Gateway. cert-manager's
+[Gateway API support](https://cert-manager.io/docs/usage/gateway/) then creates a Certificate for
+every TLS listener, named by its `certificateRefs`. That support has to be enabled in cert-manager
+(`config.enableGatewayAPI: true` in its chart).
+
+```yaml
+gateway:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+```
 
 Other `gatewayClassName` values go in `gateway.gatewayClassName`. Dual-stack needs more addresses and an explicit policy, since the chart never guesses the Service's
 families:
