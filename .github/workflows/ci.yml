@@ -40,3 +40,7 @@ jobs:
           expect_fail --set 'services[0].endpoints[0].addresses={192.0.2.1,2001:db8::1}'
           expect_fail --set 'services[0].endpoints[0].addresses={192.0.2.1,2001:db8::1}' --set services[0].ipFamilyPolicy=SingleStack
           expect_fail --set 'services[0].ipFamilies={IPv4}' --set 'services[0].endpoints[0].addresses={2001:db8::1}'
+      - name: Notes report addresses that were left out
+        run: |
+          cd charts/external-gateway
+          helm install t . -n test -f ci/ipv4-only-http-values.yaml --dry-run=client | grep -q "NOT rendered"

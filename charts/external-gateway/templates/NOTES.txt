@@ -1,0 +1,62 @@
+{{- $dropped := list }}
+{{- $warnings := list }}
+{{- /* Services: what was generated, and which addresses were left out. */}}
+{{- $svcLines := list }}
+{{- range $svc := .Values.services }}
+{{- $allowed := default (list) $svc.ipFamilies }}
+{{- $n4 := 0 }}
+{{- $n6 := 0 }}
+{{- range $e := $svc.endpoints }}
+{{- range $a := $e.addresses }}
+{{- $fam := "IPv4" }}
+{{- if contains ":" $a }}{{- $fam = "IPv6" }}{{- end }}
+{{- if or (not $allowed) (has $fam $allowed) }}
+{{- if eq $fam "IPv6" }}{{- $n6 = add1 $n6 }}{{- else }}{{- $n4 = add1 $n4 }}{{- end }}
+{{- else }}
+{{- $dropped = append $dropped (printf "%s endpoint %s: %s (%s, not in ipFamilies %v)" $svc.name (default "(unnamed)" $e.hostname) $a $fam $allowed) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $line := printf "Service %s" $svc.name }}
+{{- if $svc.type }}{{- $line = printf "%s (%s)" $line $svc.type }}{{- end }}
+{{- if $svc.endpoints }}{{- $line = printf "%s: %d IPv4 and %d IPv6 endpoint address(es)" $line $n4 $n6 }}{{- else }}{{- $line = printf "%s: no endpoints (selector or ExternalName)" $line }}{{- end }}
+{{- if $svc.backendTLS }}{{- $line = printf "%s, BackendTLSPolicy" $line }}{{- end }}
+{{- $svcLines = append $svcLines $line }}
+{{- if and $svc.endpoints $svc.selector }}{{- $warnings = append $warnings (printf "%s has both a selector and endpoints; the EndpointSlices are hand-written and Kubernetes also manages slices for a selector" $svc.name) }}{{- end }}
+{{- if and $svc.endpoints (eq (default "" $svc.type) "ExternalName") }}{{- $warnings = append $warnings (printf "%s is an ExternalName Service; Kubernetes ignores its EndpointSlices" $svc.name) }}{{- end }}
+{{- if and (not $svc.ports) (ne (default "" $svc.type) "ExternalName") }}{{- $warnings = append $warnings (printf "%s has no ports" $svc.name) }}{{- end }}
+{{- end }}
+external-gateway release {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
+
+Rendered:
+{{- if .Values.gateway.enabled }}
+  Gateway {{ include "eg.gatewayName" . }} (class {{ .Values.gateway.gatewayClassName }}), {{ len .Values.gateway.listeners }} listener(s)
+{{- else }}
+  No Gateway (gateway.enabled is false)
+{{- end }}
+{{- if .Values.gateway.enabled }}
+{{- if .Values.routes }}
+{{- range .Values.routes }}
+  {{ default "HTTPRoute" .kind }} {{ .name }}
+{{- end }}
+{{- else }}
+  HTTPRoute {{ include "eg.fullname" . }} (default route to the single service)
+{{- end }}
+{{- end }}
+{{- range $svcLines }}
+  {{ . }}
+{{- end }}
+{{- if $dropped }}
+
+NOT rendered, because the address family is excluded by the Service's ipFamilies:
+{{- range $dropped }}
+  - {{ . }}
+{{- end }}
+{{- end }}
+{{- if $warnings }}
+
+Warnings:
+{{- range $warnings }}
+  - {{ . }}
+{{- end }}
+{{- end }}

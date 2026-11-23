@@ -132,6 +132,12 @@ ConfigMaps and TLS secrets you reference are not managed by the chart.
   address in them fails the render. If the addresses use both families, `ipFamilyPolicy` (not
   `SingleStack`) or `ipFamilies` must be set, or the render fails. Nothing is derived for you.
   `helm --skip-schema-validation` turns the address check off.
+- **What was left out:** an address in a family excluded by `ipFamilies` is dropped, and the release
+  notes list each one under "NOT rendered", along with warnings such as an ExternalName Service that
+  has endpoints. Notes print on `helm install` and `helm upgrade` only. `helm template` and Argo CD
+  do not show them; run `helm install --dry-run=client` to see them. Addresses that are not IPv4 or
+  IPv6, such as FQDN names, are not dropped but rejected by the schema, and the chart does not
+  generate `addressType: FQDN` slices; use `type: ExternalName` for a DNS-named backend.
 - **Adopting existing objects:** the Gateway is named after the release, so set `fullnameOverride`
   or `gateway.name` to match, and give services and routes the names they already have.
 
