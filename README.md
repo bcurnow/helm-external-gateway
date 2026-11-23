@@ -107,7 +107,7 @@ Gateway API installs.
   yourself for anything else.
 - **Routes:** hostnames come from `hostnames`, `parentRefs` point at this release's Gateway, and with
   no `rules` everything goes to the primary Service. In your own `rules`, a `backendRef` that omits
-  `name` (and `port`) is filled with the primary Service, so `backendRefs: [{weight: 90}]` works.
+  `name` (and `port`) is filled with the primary Service, so a `backendRef` that only sets `weight` works.
 - **TLS secrets:** a generated TLS listener references `<hostname>-tls`; set `gateway.defaultListener.secretName` to use one secret for all of them. An explicit `certificate` defaults `dnsNames` to `hostnames` and `secretName` to `<first name>-tls`, and generated listeners then use that secret.
 - **EndpointSlices:** named `<service>-<port>` and `<service>-<port>-v6`; `conditions` defaults to
   `{ready: true}`. The numeric slice port comes from `endpointPort`, else `targetPort`, else `port`.
