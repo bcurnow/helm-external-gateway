@@ -12,9 +12,6 @@
 {{- $apiVersion := default (get $.Values.apiVersions $kind) $r.apiVersion }}
 {{- if not $apiVersion }}{{- fail (printf "unknown route kind %s" $kind) }}{{- end }}
 {{- $spec := deepCopy (omit $r "kind" "apiVersion" "name" "labels" "annotations") }}
-{{- if and (not $spec.hostnames) $.Values.hostnames (has $kind (list "HTTPRoute" "GRPCRoute" "TLSRoute")) }}
-{{- $_ := set $spec "hostnames" $.Values.hostnames }}
-{{- end }}
 {{- if not $spec.parentRefs }}
 {{- $_ := set $spec "parentRefs" (list (dict "name" (include "eg.gatewayName" $))) }}
 {{- end }}

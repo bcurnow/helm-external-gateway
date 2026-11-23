@@ -29,11 +29,6 @@ annotations:
 {{- end }}
 {{- end -}}
 
-{{/* DNS-label-safe slug of a hostname, for listener names. */}}
-{{- define "eg.slug" -}}
-{{- . | lower | replace "*" "wildcard" | replace "." "-" | replace "_" "-" | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
 {{/* Gateway object name. */}}
 {{- define "eg.gatewayName" -}}
 {{- default (include "eg.fullname" .) .Values.gateway.name -}}

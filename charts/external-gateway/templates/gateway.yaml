@@ -1,28 +1,11 @@
 {{- if .Values.gateway.enabled }}
 {{- $gw := .Values.gateway }}
-{{- $spec := deepCopy (omit $gw "enabled" "name" "labels" "annotations" "defaultListener") }}
+{{- $spec := deepCopy (omit $gw "enabled" "name" "labels" "annotations") }}
 {{- if not $spec.gatewayClassName }}
 {{- fail "gateway.gatewayClassName is required when gateway.enabled" }}
 {{- end }}
 {{- if not $spec.listeners }}
-{{- if not .Values.hostnames }}
-{{- fail "set hostnames or gateway.listeners" }}
-{{- end }}
-{{- $dl := $gw.defaultListener }}
-{{- $listeners := list }}
-{{- range $h := .Values.hostnames }}
-{{- $l := dict "name" (printf "%s-%s" (include "eg.slug" $h) (lower $dl.protocol)) "hostname" $h "port" $dl.port "protocol" $dl.protocol }}
-{{- if $dl.allowedRoutes }}{{- $_ := set $l "allowedRoutes" (deepCopy $dl.allowedRoutes) }}{{- end }}
-{{- if or (eq $dl.protocol "HTTPS") (eq $dl.protocol "TLS") }}
-{{- $tls := deepCopy (default (dict) $dl.tls) }}
-{{- if and (not (hasKey $tls "certificateRefs")) (ne (default "Terminate" $tls.mode) "Passthrough") }}
-{{- $_ := set $tls "certificateRefs" (list (dict "name" (default (printf "%s-tls" $h) $dl.secretName))) }}
-{{- end }}
-{{- if $tls }}{{- $_ := set $l "tls" $tls }}{{- end }}
-{{- end }}
-{{- $listeners = append $listeners $l }}
-{{- end }}
-{{- $_ := set $spec "listeners" $listeners }}
+{{- fail "gateway.listeners is required when gateway.enabled" }}
 {{- end }}
 apiVersion: {{ .Values.apiVersions.Gateway }}
 kind: Gateway

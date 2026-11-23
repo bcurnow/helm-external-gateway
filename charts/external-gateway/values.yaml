@@ -1,10 +1,6 @@
 # -- Base name for generated objects. Defaults to the release name.
 fullnameOverride: ""
 
-# -- Hostnames this gateway serves. Used as the default for generated listeners and route
-# hostnames. Leave empty if you supply listeners and route hostnames yourself.
-hostnames: []
-
 # -- Labels / annotations added to every object. A per-object value wins on conflict.
 commonLabels: {}
 commonAnnotations: {}
@@ -25,44 +21,42 @@ apiVersions:
 # CRD supports works, including fields added in future Gateway API releases. Everything is created
 # in the release namespace.
 
-# -- The Gateway. Reserved keys: enabled, name, labels, annotations, defaultListener.
-# Spec keys: gatewayClassName, listeners, addresses, allowedListeners, tls,
+# -- The Gateway. Reserved keys: enabled, name, labels, annotations. Every other key is a Gateway
+# spec field: gatewayClassName, listeners (required), addresses, allowedListeners, tls,
 # infrastructure (labels, annotations, parametersRef), and anything else the CRD defines.
 gateway:
   enabled: true
+  # Defaults to the release name.
   name: ""
   labels: {}
   annotations: {}
   # The GatewayClass is installed by the Gateway implementation, not by this chart.
   gatewayClassName: cilium
   # Certificates: annotate the Gateway and cert-manager's Gateway API support issues one per TLS
-  # listener, named after the listener's secret.
+  # listener, named after the listener's certificateRefs secret.
   # annotations:
   #   cert-manager.io/cluster-issuer: my-issuer
   # Implementation-specific settings, such as pinned load balancer addresses:
   # infrastructure:
   #   annotations:
   #     lbipam.cilium.io/ips: 192.0.2.10,2001:db8::10
-  # listeners: []   # native Gateway listeners; when empty, one is generated per entry in hostnames
-  # Shape of the generated listeners.
-  defaultListener:
-    protocol: HTTPS
-    port: 443
-    # TLS secret for HTTPS and TLS listeners. Defaults to <hostname>-tls per listener. Set it to
-    # use a secret you manage yourself.
-    secretName: ""
-    # Extra listener.tls fields (mode, options, certificateRefs, ...).
-    tls: {}
-    # Added to each generated listener as allowedRoutes.
-    allowedRoutes: {}
+  listeners: []
+  #  - name: https
+  #    hostname: app.example.com
+  #    port: 443
+  #    protocol: HTTPS
+  #    tls:
+  #      certificateRefs:
+  #        - name: app-example-com-tls
 
 # -- Routes. Each item's reserved keys: kind, apiVersion, name, labels, annotations. kind is one of
 # HTTPRoute (the default), GRPCRoute, TLSRoute, TCPRoute, UDPRoute. Spec keys: hostnames,
 # parentRefs, rules, and anything else the CRD defines.
 # `name` is required. With no routes at all, a single HTTPRoute named after the release sends
-# everything to the one service. Per route, hostnames come from the top-level hostnames,
-# parentRefs point at this release's Gateway, and with no rules everything (path prefix / for
-# HTTPRoute) goes to the service. A backendRef that omits name (and port) is filled with the
+# everything to the one service. Per route, parentRefs point at this release's Gateway, and with
+# no rules everything (path prefix / for HTTPRoute) goes to the service. A route with no
+# hostnames serves the hostnames of the listeners it attaches to, except TLSRoute, which
+# requires hostnames. A backendRef that omits name (and port) is filled with the
 # service too. All of this applies only when there is exactly one service; with several, spell
 # out rules and backendRefs.
 routes: []

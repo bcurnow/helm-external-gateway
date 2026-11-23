@@ -1,9 +1,15 @@
 # The README's minimal example.
-hostnames:
-- app.example.com
 gateway:
   annotations:
     cert-manager.io/cluster-issuer: example-issuer
+  listeners:
+  - name: app-example-com-https
+    hostname: app.example.com
+    port: 443
+    protocol: HTTPS
+    tls:
+      certificateRefs:
+      - name: app.example.com-tls
 services:
 - name: app
   ports:

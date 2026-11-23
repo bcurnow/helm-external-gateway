@@ -1,10 +1,16 @@
 fullnameOverride: six
-hostnames:
-- six.example.com
 gateway:
   annotations:
     cert-manager.io/issuer: example-issuer
     cert-manager.io/issuer-kind: Issuer
+  listeners:
+  - name: six-example-com-https
+    hostname: six.example.com
+    port: 443
+    protocol: HTTPS
+    tls:
+      certificateRefs:
+      - name: six.example.com-tls
 routes:
 - name: six-default-route
   rules:

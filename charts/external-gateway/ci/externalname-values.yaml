@@ -1,10 +1,10 @@
 fullnameOverride: ext
-hostnames:
-- ext.example.com
 gateway:
-  defaultListener:
-    protocol: HTTP
+  listeners:
+  - name: ext-example-com-http
+    hostname: ext.example.com
     port: 80
+    protocol: HTTP
 services:
 - name: ext
   type: ExternalName

@@ -1,7 +1,4 @@
 fullnameOverride: sink
-hostnames:
-- a.example.com
-- b.example.com
 commonLabels:
   team: infra
 commonAnnotations:
@@ -24,11 +21,25 @@ gateway:
       l: infra
     annotations:
       a: infra
-  defaultListener:
-    secretName: shared-tls
-    allowedRoutes:
+  listeners:
+  - name: a-example-com-https
+    hostname: a.example.com
+    port: 443
+    protocol: HTTPS
+    allowedRoutes: &id001
       namespaces:
         from: All
+    tls:
+      certificateRefs:
+      - name: shared-tls
+  - name: b-example-com-https
+    hostname: b.example.com
+    port: 443
+    protocol: HTTPS
+    allowedRoutes: *id001
+    tls:
+      certificateRefs:
+      - name: shared-tls
 routes:
 - name: sink-http
   labels:

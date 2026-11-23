@@ -1,15 +1,17 @@
 fullnameOverride: pass
-hostnames:
-- pass.example.com
 gateway:
-  defaultListener:
-    protocol: TLS
+  listeners:
+  - name: pass-example-com-tls
+    hostname: pass.example.com
     port: 443
+    protocol: TLS
     tls:
       mode: Passthrough
 routes:
 - name: pass-default-route
   kind: TLSRoute
+  hostnames:
+  - pass.example.com
 services:
 - name: pass
   ports:

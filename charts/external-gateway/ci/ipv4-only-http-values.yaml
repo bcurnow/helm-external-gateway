@@ -1,10 +1,10 @@
 fullnameOverride: plain
-hostnames:
-- plain.example.com
 gateway:
-  defaultListener:
-    protocol: HTTP
+  listeners:
+  - name: plain-example-com-http
+    hostname: plain.example.com
     port: 80
+    protocol: HTTP
 services:
 - name: plain
   ipFamilies:

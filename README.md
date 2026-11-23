@@ -26,11 +26,17 @@ installs none of these.
 ## Minimal example
 
 ```yaml
-hostnames:
-  - app.example.com
 gateway:
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
+  listeners:
+    - name: https
+      hostname: app.example.com
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - name: app-example-com-tls
 services:
   - name: app
     ports:
@@ -41,12 +47,12 @@ services:
 ```
 
 That renders an HTTPS listener for `app.example.com` on a `cilium` Gateway, an `HTTPRoute` sending `/`
-to a Service on port 8080, and an EndpointSlice with the backend address. The listener's TLS secret
-is named `app.example.com-tls`. The `cert-manager.io/cluster-issuer` annotation makes cert-manager
-issue that certificate: its [Gateway API support](https://cert-manager.io/docs/usage/gateway/) creates
-a Certificate for every TLS listener of an annotated Gateway. That support has to be enabled in
-cert-manager (`config.enableGatewayAPI: true` in its chart). To use a TLS secret you manage
-yourself instead, set `gateway.defaultListener.secretName`.
+to a Service on port 8080, and an EndpointSlice with the backend address. The
+`cert-manager.io/cluster-issuer` annotation makes cert-manager issue the certificate named by the
+listener's `certificateRefs`: its [Gateway API support](https://cert-manager.io/docs/usage/gateway/)
+creates a Certificate for every TLS listener of an annotated Gateway. That support has to be enabled in
+cert-manager (`config.enableGatewayAPI: true` in its chart). To use a TLS secret you manage yourself,
+point `certificateRefs` at it and leave the annotation off.
 
 Other `gatewayClassName` values go in `gateway.gatewayClassName`. Dual-stack needs only more addresses:
 
@@ -92,7 +98,7 @@ in future Gateway API releases, with no chart change.
 
 | Values key | Object | Reserved keys (everything else is spec) |
 |---|---|---|
-| `gateway` | Gateway | `enabled name labels annotations defaultListener` |
+| `gateway` | Gateway | `enabled name labels annotations` |
 | `routes[]` | `kind`-dependent Route | `kind apiVersion name labels annotations` |
 | `services[]` | Service (+ slices, policy) | `name labels annotations ports endpoints endpointSlice backendTLS` |
 | `services[].backendTLS` | BackendTLSPolicy | `name labels annotations` |
@@ -104,19 +110,14 @@ ConfigMaps and TLS secrets you reference are not managed by the chart.
 
 ### Defaults, so the common case is short
 
-- **Listeners:** with no `gateway.listeners`, one is generated per entry in `hostnames` from
-  `gateway.defaultListener` (protocol, port, TLS secret, `tls`, `allowedRoutes`). Set `listeners`
-  yourself for anything else.
 - **Names:** every `services[]` and `routes[]` item needs a `name`. Only the Gateway defaults to the
   release name, since there is exactly one.
 - **Routes:** with no `routes` at all, one HTTPRoute named after the release sends everything to the
-  service. For each route, hostnames come from `hostnames`, `parentRefs` point at this release's
-  Gateway, and with no `rules` everything goes to the service. In your own `rules`, a `backendRef`
+  service. For each route, `parentRefs` point at this release's Gateway, and with no `rules` everything goes to the service. In your own `rules`, a `backendRef`
   that omits `name` (and `port`) is filled with the service, so a `backendRef` that only sets
   `weight` works. This applies only when there is exactly one service; with several, name the
-  service in every `backendRef`.
-- **TLS secrets:** a generated TLS listener references `<hostname>-tls`. Set
-  `gateway.defaultListener.secretName` to use one secret you manage for all of them.
+  service in every `backendRef`. A route with no `hostnames` serves its listeners' hostnames, except
+  TLSRoute, where the CRD requires them.
 - **EndpointSlices:** named `<service>-<port>` and `<service>-<port>-v6`; `conditions` defaults to
   `ready: true`. The numeric slice port comes from `endpointPort`, else `targetPort`, else `port`.
   Set `endpointPort` when `targetPort` is a name.
