@@ -1,12 +1,18 @@
+# =============================================================================================
+# General
+# =============================================================================================
+
 # -- Base name for generated objects. Defaults to the release name.
 fullnameOverride: ""
 
-# -- Labels / annotations added to every object. A per-object value wins on conflict.
+# -- Labels added to every object. A per-object value wins on conflict.
 commonLabels: {}
+
+# -- Annotations added to every object. A per-object value wins on conflict.
 commonAnnotations: {}
 
-# -- apiVersion per kind. Override for older or experimental Gateway API installs
-# (for example BackendTLSPolicy gateway.networking.k8s.io/v1alpha3, TLSRoute .../v1alpha2).
+# -- apiVersion per kind. Override for older or experimental Gateway API installs, for example
+# BackendTLSPolicy gateway.networking.k8s.io/v1alpha3 or TLSRoute gateway.networking.k8s.io/v1alpha2.
 apiVersions:
   Gateway: gateway.networking.k8s.io/v1
   HTTPRoute: gateway.networking.k8s.io/v1
@@ -16,86 +22,219 @@ apiVersions:
   UDPRoute: gateway.networking.k8s.io/v1alpha2
   BackendTLSPolicy: gateway.networking.k8s.io/v1
 
-# Every object below follows the same convention. A few reserved keys are chart controls
-# (named per object). Every other key is copied verbatim into the object's spec, so any field the
-# CRD supports works, including fields added in future Gateway API releases. Everything is created
-# in the release namespace.
+# How the objects below work:
+#
+#   - A few keys are chart controls and are listed as "reserved" for each object.
+#   - Every other key is copied verbatim into that object's spec, so any field the CRD supports
+#     works, including fields added in future Gateway API releases.
+#   - Everything is created in the release namespace.
 
-# -- The Gateway. Reserved keys: enabled, name, labels, annotations. Every other key is a Gateway
-# spec field: gatewayClassName, listeners (required), addresses, allowedListeners, tls,
-# infrastructure (labels, annotations, parametersRef), and anything else the CRD defines.
+
+# =============================================================================================
+# Gateway
+# =============================================================================================
+
+# -- The Gateway.
+#
+# Reserved keys: enabled, name, labels, annotations.
+# Every other key is a Gateway spec field (gatewayClassName, listeners, addresses,
+# allowedListeners, tls, infrastructure, ...).
 gateway:
+  # Set to false to render only the Service and EndpointSlices, for example a LoadBalancer
+  # Service in front of external endpoints with no Gateway.
   enabled: true
+
   # Defaults to the release name.
   name: ""
+
   labels: {}
-  annotations: {}
-  # The GatewayClass is installed by the Gateway implementation, not by this chart.
-  gatewayClassName: cilium
-  # Certificates: annotate the Gateway and cert-manager's Gateway API support issues one per TLS
-  # listener, named after the listener's certificateRefs secret.
+
+  # Certificates: cert-manager's Gateway API support issues one per TLS listener when the Gateway
+  # carries an issuer annotation. The secret is the one named in the listener's certificateRefs.
+  #
   # annotations:
   #   cert-manager.io/cluster-issuer: my-issuer
+  annotations: {}
+
+  # The GatewayClass is installed by the Gateway implementation, not by this chart.
+  gatewayClassName: cilium
+
+  # Required when the Gateway is enabled. Native Gateway listeners; every field the CRD defines is
+  # accepted.
+  #
+  # listeners:
+  #   - name: https
+  #     hostname: app.example.com
+  #     port: 443
+  #     protocol: HTTPS            # HTTP, HTTPS, TLS, TCP, UDP
+  #     tls:
+  #       mode: Terminate          # or Passthrough (TLS listeners)
+  #       certificateRefs:
+  #         - name: app-example-com-tls
+  #     allowedRoutes:
+  #       namespaces:
+  #         from: Same
+  listeners: []
+
+  # Other Gateway spec fields, all optional:
+  #
+  # addresses:
+  #   - type: IPAddress
+  #     value: 192.0.2.10
+  #
+  # allowedListeners:
+  #   namespaces:
+  #     from: All
+  #
+  # tls:
+  #   frontend:
+  #     default:
+  #       validation:
+  #         caCertificateRefs: []
+  #
   # Implementation-specific settings, such as pinned load balancer addresses:
   # infrastructure:
+  #   labels: {}
   #   annotations:
   #     lbipam.cilium.io/ips: 192.0.2.10,2001:db8::10
-  listeners: []
-  #  - name: https
-  #    hostname: app.example.com
-  #    port: 443
-  #    protocol: HTTPS
-  #    tls:
-  #      certificateRefs:
-  #        - name: app-example-com-tls
+  #   parametersRef:
+  #     group: ""
+  #     kind: ConfigMap
+  #     name: my-params
 
-# -- Routes. Each item's reserved keys: kind, apiVersion, name, labels, annotations. kind is one of
-# HTTPRoute (the default), GRPCRoute, TLSRoute, TCPRoute, UDPRoute. Spec keys: hostnames,
-# parentRefs, rules, and anything else the CRD defines.
-# `name` is required. With no routes at all, a single HTTPRoute named after the release sends
-# everything to the one service. Per route, parentRefs point at this release's Gateway, and with
-# no rules everything (path prefix / for HTTPRoute) goes to the service. A route with no
-# hostnames serves the hostnames of the listeners it attaches to, except TLSRoute, which
-# requires hostnames. A backendRef that omits name (and port) is filled with the
-# service too. All of this applies only when there is exactly one service; with several, spell
-# out rules and backendRefs.
+
+# =============================================================================================
+# Routes
+# =============================================================================================
+
+# -- Routes. A list; each item is one route.
+#
+# Reserved keys: name (required), kind, apiVersion, labels, annotations.
+# Every other key is a route spec field (hostnames, parentRefs, rules, ...).
+#
+# Defaults, applied only when there is exactly one service:
+#
+#   - With no routes at all, one HTTPRoute named after the release sends everything to the
+#     service.
+#   - With no rules, everything goes to the service (path prefix / for an HTTPRoute).
+#   - A backendRef that omits name (and port) is filled with the service.
+#
+# With several services, spell out the rules and name the service in every backendRef.
+#
+# Defaults that apply to every route:
+#
+#   - parentRefs point at this release's Gateway.
+#   - A route with no hostnames serves the hostnames of the listeners it attaches to. A TLSRoute
+#     is the exception, because its CRD requires hostnames.
+#
+# Example with every chart key:
+#
+# routes:
+#   - name: my-route
+#     kind: HTTPRoute              # HTTPRoute (default), GRPCRoute, TLSRoute, TCPRoute, UDPRoute
+#     apiVersion: ""               # overrides apiVersions for this route
+#     labels: {}
+#     annotations: {}
+#
+#     # Everything below is the route's own spec.
+#     hostnames:
+#       - app.example.com
+#     parentRefs:
+#       - name: my-gateway
+#         sectionName: https
+#     rules:
+#       - matches:
+#           - path:
+#               type: PathPrefix
+#               value: /api
+#         filters: []
+#         timeouts:
+#           request: 0s
+#         backendRefs:
+#           - weight: 90           # no name: the single service
+#           - name: other
+#             port: 8080
+#             weight: 10
 routes: []
-#  - name: my-route
-#    rules:
-#      - matches:
-#          - path:
-#              type: PathPrefix
-#              value: /api
-#        backendRefs:
-#          - weight: 90
 
-# -- Services, backends that are normally outside the cluster.
-# Reserved keys: name (required), labels, annotations, ports, endpoints, endpointSlice, backendTLS. Every
-# other key is a Service spec field (type, selector, ipFamilyPolicy, ipFamilies, externalName,
-# clusterIP, loadBalancerClass, sessionAffinity, ...).
+
+# =============================================================================================
+# Services
+# =============================================================================================
+
+# -- Services: the backends, normally outside the cluster. A list; each item is one Service, plus
+# its EndpointSlices and optional BackendTLSPolicy.
+#
+# Reserved keys: name (required), labels, annotations, ports, endpoints, endpointSlice,
+# backendTLS.
+# Every other key is a Service spec field (type, selector, ipFamilyPolicy, ipFamilies,
+# externalName, clusterIP, loadBalancerClass, sessionAffinity, ...).
+#
+# Example with every chart key:
+#
+# services:
+#   - name: my-backend
+#     labels: {}
+#     annotations: {}
+#
+#     # Service spec fields, all optional.
+#     type: ClusterIP              # ClusterIP, LoadBalancer, ExternalName, ...
+#     ipFamilyPolicy: PreferDualStack
+#     ipFamilies: []               # [IPv4], [IPv6], or both
+#
+#     # Native Service port fields (name, port, targetPort, protocol, appProtocol, nodePort).
+#     ports:
+#       - name: https
+#         port: 443
+#         targetPort: 8443
+#         protocol: TCP
+#         appProtocol: https
+#         endpointPort: 8443       # chart-only, see below
+#
+#     # Out-of-cluster backends, one item per backend host. Leave endpoints out for
+#     # selector-based or ExternalName Services.
+#     endpoints:
+#       - hostname: backend1
+#         addresses:               # IPv4 and IPv6, in any mix
+#           - 192.0.2.20
+#           - 2001:db8::20
+#         nodeName: ""             # the remaining fields are native EndpointSlice endpoint fields
+#         zone: ""
+#         conditions:
+#           ready: true
+#
+#     # Names default to <service>-<first port> and <service>-<first port>-v6.
+#     endpointSlice:
+#       nameIPv4: ""
+#       nameIPv6: ""
+#       labels: {}
+#       annotations: {}
+#
+#     # Re-encrypt to the backend. Presence of the key creates a BackendTLSPolicy.
+#     backendTLS:
+#       name: ""                   # defaults to <service>-backend-tls
+#       labels: {}
+#       annotations: {}
+#       validation:
+#         hostname: backend.example.com
+#         caCertificateRefs:       # a ConfigMap you manage, or use wellKnownCACertificates
+#           - kind: ConfigMap
+#             name: my-ca
+#         # wellKnownCACertificates: System
+#         subjectAltNames: []
+#       options: {}
+#       # targetRefs defaults to this Service.
+#
+# How the chart treats ports, endpoints and families:
+#
+#   - endpointPort is the number written into the EndpointSlice port. It defaults to targetPort,
+#     or to port when there is no targetPort. Set it when targetPort is a name.
+#   - Each address is validated as IPv4 or IPv6 by the values schema, then split into one IPv4
+#     and one IPv6 EndpointSlice. A family with no addresses gets no slice.
+#   - With ipFamilies set, only those families get a slice, and every endpoint needs an address
+#     in one of them.
+#   - When the addresses use both families, ipFamilyPolicy (not SingleStack) or ipFamilies must
+#     be set. The chart does not guess.
+#   - conditions defaults to ready: true.
+#   - The CA ConfigMap that backendTLS references is not managed by this chart.
 services: []
-#  - name: my-backend
-#    ports:
-#      - port: 443
-#        targetPort: 8443
-#    endpoints:
-#      - hostname: backend1
-#        addresses:
-#          - 192.0.2.20
-#          - 2001:db8::20
-# ports: native Service port fields (name, port, targetPort, protocol, appProtocol, nodePort),
-# plus endpointPort: the number written into the EndpointSlice port. It defaults to targetPort
-# (or port when there is no targetPort) and must be set when targetPort is a name.
-# endpoints: each item is a native EndpointSlice endpoint (hostname, nodeName, zone, conditions,
-# targetRef, hints) with `addresses` as a mixed list of IPv4 and IPv6 addresses, checked by the
-# values schema. The chart splits them into one IPv4 and one IPv6 EndpointSlice and omits a slice
-# for a family with no addresses. With ipFamilies set, only those families get a slice, and every
-# endpoint needs an address in one of them. When the addresses use both families, ipFamilyPolicy
-# (not SingleStack) or ipFamilies must be set; the chart does not guess. conditions defaults to
-# ready: true. Leave endpoints out for selector-based or ExternalName Services.
-# endpointSlice: nameIPv4, nameIPv6, labels, annotations. Names default to
-# <service>-<first port> and <service>-<first port>-v6.
-# backendTLS: a BackendTLSPolicy for the Service. Reserved keys: name, labels, annotations. Spec
-# keys: validation (hostname, caCertificateRefs, wellKnownCACertificates, subjectAltNames),
-# options, targetRefs. targetRefs defaults to the Service. The CA ConfigMap it references is not
-# managed by this chart.
