@@ -1,13 +1,13 @@
 {{- if .Values.gateway.enabled }}
 {{- $routes := .Values.routes }}
-{{- if not $routes }}{{- $routes = list (dict) }}{{- end }}
+{{- if not $routes }}{{- $routes = list (dict "name" (include "eg.fullname" .)) }}{{- end }}
 {{- $default := dict }}
-{{- with .Values.services }}
-{{- $first := first . }}
-{{- $_ := set $default "name" (include "eg.serviceName" (dict "root" $ "svc" $first "index" 0)) }}
-{{- with $first.ports }}{{- $_ := set $default "port" (first .).port }}{{- end }}
+{{- if eq (len .Values.services) 1 }}
+{{- $only := first .Values.services }}
+{{- $_ := set $default "name" (required "every services[] item needs a name" $only.name) }}
+{{- with $only.ports }}{{- $_ := set $default "port" (first .).port }}{{- end }}
 {{- end }}
-{{- range $i, $r := $routes }}
+{{- range $r := $routes }}
 {{- $kind := default "HTTPRoute" $r.kind }}
 {{- $apiVersion := default (get $.Values.apiVersions $kind) $r.apiVersion }}
 {{- if not $apiVersion }}{{- fail (printf "unknown route kind %s" $kind) }}{{- end }}
@@ -19,7 +19,7 @@
 {{- $_ := set $spec "parentRefs" (list (dict "name" (include "eg.gatewayName" $))) }}
 {{- end }}
 {{- if not $spec.rules }}
-{{- if not $default.name }}{{- fail "a route without rules needs a service to send traffic to" }}{{- end }}
+{{- if not $default.name }}{{- fail "routes without rules need exactly one service; with several, give explicit rules and backendRefs" }}{{- end }}
 {{- $rule := dict "backendRefs" (list (deepCopy $default)) }}
 {{- if eq $kind "HTTPRoute" }}{{- $_ := set $rule "matches" (list (dict "path" (dict "type" "PathPrefix" "value" "/"))) }}{{- end }}
 {{- $_ := set $spec "rules" (list $rule) }}
@@ -32,7 +32,7 @@
 {{- range $ref := $rule.backendRefs }}
 {{- $ref = deepCopy (default (dict) $ref) }}
 {{- if not $ref.name }}
-{{- if not $default.name }}{{- fail "a backendRef without name needs a service" }}{{- end }}
+{{- if not $default.name }}{{- fail "a backendRef without name needs exactly one service; name the service explicitly" }}{{- end }}
 {{- $_ := set $ref "name" $default.name }}
 {{- if not (hasKey $ref "port") }}{{- if hasKey $default "port" }}{{- $_ := set $ref "port" $default.port }}{{- end }}{{- end }}
 {{- end }}
@@ -44,8 +44,7 @@
 {{- end }}
 {{- $_ := set $spec "rules" $rules }}
 {{- end }}
-{{- $name := $r.name }}
-{{- if not $name }}{{- if eq $i 0 }}{{- $name = printf "%s-default-route" (include "eg.fullname" $) }}{{- else }}{{- $name = printf "%s-route-%d" (include "eg.fullname" $) $i }}{{- end }}{{- end }}
+{{- $name := required "every routes[] item needs a name" $r.name }}
 ---
 apiVersion: {{ $apiVersion }}
 kind: {{ $kind }}

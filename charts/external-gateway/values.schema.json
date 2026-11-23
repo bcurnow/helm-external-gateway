@@ -130,7 +130,10 @@
           "rules": {
             "type": "array"
           }
-        }
+        },
+        "required": [
+          "name"
+        ]
       }
     },
     "services": {
@@ -257,7 +260,10 @@
               }
             }
           }
-        }
+        },
+        "required": [
+          "name"
+        ]
       }
     }
   }

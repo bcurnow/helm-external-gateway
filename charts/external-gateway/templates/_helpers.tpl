@@ -39,13 +39,7 @@ annotations:
 {{- default (include "eg.fullname" .) .Values.gateway.name -}}
 {{- end -}}
 
-{{/* Name of the Service at index $i in .Values.services. The first defaults to the release name. */}}
+{{/* Name of a service; required. */}}
 {{- define "eg.serviceName" -}}
-{{- if .svc.name -}}
-{{- .svc.name -}}
-{{- else if eq (int .index) 0 -}}
-{{- include "eg.fullname" .root -}}
-{{- else -}}
-{{- fail "every service after the first needs a name" -}}
-{{- end -}}
+{{- required "every services[] item needs a name" .name -}}
 {{- end -}}

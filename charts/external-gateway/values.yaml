@@ -59,12 +59,15 @@ gateway:
 # -- Routes. Each item's reserved keys: kind, apiVersion, name, labels, annotations. kind is one of
 # HTTPRoute (the default), GRPCRoute, TLSRoute, TCPRoute, UDPRoute. Spec keys: hostnames,
 # parentRefs, rules, and anything else the CRD defines.
-# With no routes at all, a single HTTPRoute sends everything to the first service. Per route,
-# hostnames come from the top-level hostnames, parentRefs point at this release's Gateway, and
-# with no rules everything (path prefix / for HTTPRoute) goes to the first service. A backendRef
-# that omits name (and port) is filled with the first service.
+# `name` is required. With no routes at all, a single HTTPRoute named after the release sends
+# everything to the one service. Per route, hostnames come from the top-level hostnames,
+# parentRefs point at this release's Gateway, and with no rules everything (path prefix / for
+# HTTPRoute) goes to the service. A backendRef that omits name (and port) is filled with the
+# service too. All of this applies only when there is exactly one service; with several, spell
+# out rules and backendRefs.
 routes: []
-#  - rules:
+#  - name: my-route
+#    rules:
 #      - matches:
 #          - path:
 #              type: PathPrefix
@@ -72,13 +75,13 @@ routes: []
 #        backendRefs:
 #          - weight: 90
 
-# -- Services, backends that are normally outside the cluster. The first defaults to the release
-# name; the others need a name.
-# Reserved keys: name, labels, annotations, ports, endpoints, endpointSlice, backendTLS. Every
+# -- Services, backends that are normally outside the cluster.
+# Reserved keys: name (required), labels, annotations, ports, endpoints, endpointSlice, backendTLS. Every
 # other key is a Service spec field (type, selector, ipFamilyPolicy, ipFamilies, externalName,
 # clusterIP, loadBalancerClass, sessionAffinity, ...).
 services: []
-#  - ports:
+#  - name: my-backend
+#    ports:
 #      - port: 443
 #        targetPort: 8443
 #    endpoints:

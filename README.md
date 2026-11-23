@@ -32,7 +32,8 @@ gateway:
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
 services:
-  - ports:
+  - name: app
+    ports:
       - port: 8080
     endpoints:
       - addresses:
@@ -51,7 +52,8 @@ Other `gatewayClassName` values go in `gateway.gatewayClassName`. Dual-stack nee
 
 ```yaml
 services:
-  - ipFamilyPolicy: PreferDualStack
+  - name: app
+    ipFamilyPolicy: PreferDualStack
     ports:
       - port: 8080
     endpoints:
@@ -64,7 +66,8 @@ Re-encrypt to a backend that serves TLS with a private CA:
 
 ```yaml
 services:
-  - ports:
+  - name: app
+    ports:
       - port: 443
         appProtocol: https
     backendTLS:
@@ -104,17 +107,21 @@ ConfigMaps and TLS secrets you reference are not managed by the chart.
 - **Listeners:** with no `gateway.listeners`, one is generated per entry in `hostnames` from
   `gateway.defaultListener` (protocol, port, TLS secret, `tls`, `allowedRoutes`). Set `listeners`
   yourself for anything else.
-- **Routes:** with no `routes` at all, one HTTPRoute sends everything to the first Service. For each
-  route, hostnames come from `hostnames`, `parentRefs` point at this release's Gateway, and with no
-  `rules` everything goes to the first Service. In your own `rules`, a `backendRef` that omits
-  `name` (and `port`) is filled with the first Service, so a `backendRef` that only sets `weight` works.
+- **Names:** every `services[]` and `routes[]` item needs a `name`. Only the Gateway defaults to the
+  release name, since there is exactly one.
+- **Routes:** with no `routes` at all, one HTTPRoute named after the release sends everything to the
+  service. For each route, hostnames come from `hostnames`, `parentRefs` point at this release's
+  Gateway, and with no `rules` everything goes to the service. In your own `rules`, a `backendRef`
+  that omits `name` (and `port`) is filled with the service, so a `backendRef` that only sets
+  `weight` works. This applies only when there is exactly one service; with several, name the
+  service in every `backendRef`.
 - **TLS secrets:** a generated TLS listener references `<hostname>-tls`. Set
   `gateway.defaultListener.secretName` to use one secret you manage for all of them.
 - **EndpointSlices:** named `<service>-<port>` and `<service>-<port>-v6`; `conditions` defaults to
   `ready: true`. The numeric slice port comes from `endpointPort`, else `targetPort`, else `port`.
   Set `endpointPort` when `targetPort` is a name.
-- **Naming:** the first Service, the Gateway and `<name>-default-route` take the release name. Set
-  `fullnameOverride`, or any object's `name`, to adopt existing objects without renaming them.
+- **Adopting existing objects:** the Gateway is named after the release, so set `fullnameOverride`
+  or `gateway.name` to match, and give services and routes the names they already have.
 
 ### Notes
 

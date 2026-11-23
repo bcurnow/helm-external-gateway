@@ -6,7 +6,8 @@ gateway:
     cert-manager.io/issuer: example-issuer
     cert-manager.io/issuer-kind: Issuer
 routes:
-- rules:
+- name: six-default-route
+  rules:
   - matches:
     - path:
         type: PathPrefix
@@ -16,7 +17,8 @@ routes:
     backendRefs:
     - {}
 services:
-- ipFamilies:
+- name: six
+  ipFamilies:
   - IPv6
   ipFamilyPolicy: SingleStack
   ports:

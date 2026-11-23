@@ -1,5 +1,5 @@
-{{- range $i, $svc := .Values.services }}
-{{- $name := include "eg.serviceName" (dict "root" $ "svc" $svc "index" $i) }}
+{{- range $svc := .Values.services }}
+{{- $name := required "every services[] item needs a name" $svc.name }}
 {{- $spec := deepCopy (omit $svc "name" "labels" "annotations" "ports" "endpoints" "endpointSlice" "backendTLS") }}
 {{- if $svc.ports }}
 {{- $ports := list }}

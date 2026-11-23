@@ -3,7 +3,8 @@ fullnameOverride: store
 gateway:
   enabled: false
 services:
-- type: LoadBalancer
+- name: store
+  type: LoadBalancer
   ipFamilyPolicy: PreferDualStack
   annotations:
     example.com/lb-ips: 192.0.2.70,2001:db8::70

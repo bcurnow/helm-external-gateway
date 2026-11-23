@@ -9,7 +9,8 @@ gateway:
   annotations:
     cert-manager.io/cluster-issuer: example-issuer
 services:
-- ipFamilyPolicy: PreferDualStack
+- name: app
+  ipFamilyPolicy: PreferDualStack
   ports:
   - name: port-80
     port: 80

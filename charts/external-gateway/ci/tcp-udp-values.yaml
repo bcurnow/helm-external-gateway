@@ -8,12 +8,13 @@ gateway:
     port: 5353
     protocol: UDP
 routes:
-- kind: TCPRoute
+- name: l4-default-route
+  kind: TCPRoute
   parentRefs:
   - name: l4
     sectionName: tcp
-- kind: UDPRoute
-  name: l4-udp
+- name: l4-udp
+  kind: UDPRoute
   parentRefs:
   - name: l4
     sectionName: udp
@@ -22,7 +23,8 @@ routes:
     - name: l4
       port: 5353
 services:
-- ports:
+- name: l4
+  ports:
   - name: tcp
     port: 5432
     protocol: TCP
