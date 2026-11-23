@@ -16,7 +16,7 @@ endpoints (a `LoadBalancer` Service over a Ceph RGW, say).
 ## Install
 
 ```
-helm install myapp oci://ghcr.io/bcurnow/charts/external-gateway --version 0.1.0 -f values.yaml
+helm install myapp oci://ghcr.io/bcurnow/charts/external-gateway --version 1.0.0 -f values.yaml
 ```
 
 Requires the Gateway API CRDs and a Gateway implementation (which provides the GatewayClass). For
@@ -148,6 +148,13 @@ ConfigMaps and TLS secrets you reference are not managed by the chart.
 - EndpointSlices with `addressType: FQDN` are not generated. Use `service.type: ExternalName`.
 - Values are validated by `values.schema.json`; native fields (`listeners`, `rules`, ...) are
   deliberately left open.
+
+## Versioning
+
+The chart follows [semantic versioning](https://semver.org/). The keys documented in `values.yaml`,
+including the reserved keys of each object and the defaults described above, are the public interface.
+A release that removes or renames one, or changes what a default renders, is a major version. Fields
+copied through to an object's spec follow the Gateway API and cert-manager CRDs, not this chart.
 
 ## Development
 
